@@ -2,16 +2,20 @@ import matplotlib.pyplot as plt
 from PIL import Image
 import matplotlib.image as img
 import numpy as np
+import os
+
+img_src = "lenaTest3.jpg"
+dir = os.path.dirname(__file__)
+filename = os.path.join(dir, img_src)
 
 vec = [88, 88, 89, 90, 92, 94, 96, 97]
-img_src = "/home/jose/Universidad/DataScience/Compression/lenaTest3.jpg"
 
 
 # Encodes the line passed as parameter.
 def encode_line(vec):
     averages = []
     diffs = []
-    vec = map(int, vec)
+
     for i in range(0,len(vec),2):
         averages.append(((vec[i]) + (vec[i+1]))/2.0)
         diffs.append(((vec[i]) - (vec[i+1]))/2.0)
@@ -36,8 +40,8 @@ def encode_matrix(matrix):
     # # We have to transpose it again before returning it
     # return np.array((np.transpose(newmatrix)))
 
-    matrix = np.apply_along_axis(encode_line, 0, matrix)
     matrix = np.apply_along_axis(encode_line, 1, matrix)
+    matrix = np.apply_along_axis(encode_line, 0, matrix)
 
     return matrix
 
@@ -48,10 +52,8 @@ def encode_matrix(matrix):
 # Encodes a given image
 def image_analysis(image):
     matrix = img.imread(image)
-    matrix.astype(float)
+    matrix = matrix.astype(float)
     N = int(np.floor(np.log(len(matrix)))) # Number of iterations 
-
-    N = 3 #TEST ONLY
 
     # For each iteration, find the subset of the image which has to be encoded,
     # pass it to the encode_matrix function, and substitute it with the returned value
