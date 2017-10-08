@@ -42,7 +42,6 @@ def calc_MSE(original, quantized):
 
 
 def quantize_image(R):
-
     matrix = img.imread('/home/schenock/Desktop/lenaTest3.jpg')
     print matrix
 
