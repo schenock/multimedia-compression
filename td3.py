@@ -3,6 +3,7 @@ from PIL import Image
 import matplotlib.image as img
 import numpy as np
 import os
+import math
 
 img_src = "lenaTest3.jpg"
 dir = os.path.dirname(__file__)
@@ -116,16 +117,25 @@ def image_synthesis(image, N=None):
 # Quantizes a vector using R bits
 def quantize(vector, R, minv=0, maxv=256):
     L = pow(2, R)
-    bucket = (maxv - minv)/L
+    bucket = abs(maxv - minv)/L
 
-    quantized = []
+    bins = np.linspace(minv, maxv, L+1)
+    indexes = np.digitize(vector, bins)
 
-    for val in vector:
-        interval = val-minv/bucket
-        representative = interval*bucket + bucket/2
-        quantized.append(representative)
+    result = []
+    for i in indexes:
+        result.append(i*bucket - bucket/2.0 + minv)
+
+    return result
+    # #print("L:" + str(L)+" R:" + str(R)+" min:"+str(minv)+ " max:" + str(maxv) + " bucket:" +str(bucket))
+    # quantized = []
+
+    # for val in vector:
+    #     interval = (val)/bucket
+    #     representative = (interval*bucket + bucket/2)
+    #     quantized.append(representative)
         
-    return quantized
+    # return quantized
 
 
 # # Quantizes a vector using R bits
@@ -141,7 +151,8 @@ def quantize(vector, R, minv=0, maxv=256):
 
 # Quantize the image passed as parameter (it has to be a matrix)
 def quantize_image(matrix, R):
-   return np.apply_along_axis(quantize, 1, matrix, R, minv=matrix.min(), maxv=matrix.max())
+    #print("MIN:" + str(matrix.min()) + " MAX:" + str(matrix.max()))
+    return np.apply_along_axis(quantize, 1, matrix, R, minv=matrix.min(), maxv=matrix.max())
 
 
 # Calculate the entropy of the image passed as parameter (matrix)
@@ -160,7 +171,7 @@ def entropy(image):
     return -entropy
 
 # N: number of decomposition levels
-def quantize_decomposed(matrix, N):
+def get_subbands(matrix, N):
     subbands = []
 
     # Find the subbands
@@ -174,9 +185,13 @@ def quantize_decomposed(matrix, N):
         subbands.append(matrix[row_limit:row_limit*2, col_limit:col_limit*2])
         subbands.append(matrix[0:row_limit, col_limit:col_limit*2])
 
+    return subbands
+
+def quantize_subbands(image):
+    subbands = get_subbands(image, 2)
     
     # For each possible quantization step, 
-    for R in range(1,7):
+    for R in range(1,8):
         quantized_subbands = []
         print("R: " + str(R))
         for band in subbands:
@@ -184,12 +199,14 @@ def quantize_decomposed(matrix, N):
             quantized_subbands.append(quant_band)
 
             print("Entropy before quant = ", entropy(band))
+            #print(band)
             print("Entropy after quant = ", entropy(quant_band))
+            #print(quant_band)
             print("Diff = ", entropy(band)-entropy(quant_band))
 
 
     
-quantize_decomposed(image_analysis(img_src, N=2), 2)
+quantize_subbands(image_analysis(img_src, N=2))
 
 # for subband in quantize_decomposed(image_analysis(img_src, N=2), 2):
 #     # Show the image
