@@ -109,4 +109,22 @@ def image_synthesis(image):
         plt.gray()
         plt.show()
 
+
+def entropy(image):
+    # calculate mean value from RGB channels and flatten to 1D array
+    vals = image.flatten()
+    # plot histogram with 255 bins
+    b, bins, patches = plt.hist(vals, 255)
+    plt.xlim([0, 255])
+    plt.show()
+    entropy = 0
+    for count in b:
+        norm = (count/sum(b))
+        entropy += norm * np.log(norm, 2)
+        print norm
+
+    return -entropy
+
+print entropy(img.imread(img_src))
+
 image_synthesis(image_analysis(img_src))

@@ -1,25 +1,200 @@
-def quantize(vector, R):
-    minv = 0
-    maxv = 256
+import matplotlib.pyplot as plt
+from PIL import Image
+import matplotlib.image as img
+import numpy as np
+import os
 
+img_src = "lenaTest3.jpg"
+dir = os.path.dirname(__file__)
+filename = os.path.join(dir, img_src)
+
+vec = [88, 88, 89, 90, 92, 94, 96, 97]
+
+
+# Encodes the line passed as parameter.
+def encode_line(vec):
+    averages = []
+    diffs = []
+
+    for i in range(0,len(vec),2):
+        averages.append(((vec[i]) + (vec[i+1]))/2.0)
+        diffs.append(((vec[i]) - (vec[i+1]))/2.0)
+    
+    return averages + diffs
+
+
+def decode_line(vec):
+    averages = vec[:len(vec)/2]
+    diffs = vec[len(vec)/2:]
+
+    line = []
+    
+    for a,d in zip(averages, diffs):
+        line.append(a + d)
+        line.append(a - d)
+
+    return line
+
+# Receives a matrix and encodes it, row-wise and column-wise.
+# Returns the encoded matrix
+def encode_matrix(matrix, func):
+    # rowmatrix = [] # Matrix to store the results of encoding by row
+    # newmatrix = [] # Matrix to store the final results
+
+    # Encode all rows in our original image
+    # for row in matrix:
+    #     newmatrix.append(encode_line(row))
+    
+    # Transpose the matrix so that we operate with columns this time
+    # transposed = np.transpose(rowmatrix)
+    # for col in transposed:
+    #     newmatrix.append(encode_line(col))
+    
+    # # We have to transpose it again before returning it
+    # return np.array((np.transpose(newmatrix)))
+
+    matrix = np.apply_along_axis(func, 1, matrix)
+    matrix = np.apply_along_axis(func, 0, matrix)
+
+    return matrix
+
+
+#print(encode_line(encode_line(vec)))
+
+
+# Encodes a given image
+def image_analysis(image, N=None):
+    matrix = img.imread(image)
+    matrix = matrix.astype(float)
+    
+    if N is None:
+        N = int(np.floor(np.log(len(matrix)))) - 1 # Number of iterations 
+
+    # For each iteration, find the subset of the image which has to be encoded,
+    # pass it to the encode_matrix function, and substitute it with the returned value
+    for i in range(0, N):
+        # The index of the first column which doesnt have to be encoded in this iteration
+        # (Cols further to the right correspond to the high pass component of previous iterations)
+        col_limit = len(matrix)/pow(2,i) 
+        row_limit = len(matrix[0])/pow(2,i) # Same thing with rows (this way we can work with non square imgs)
+
+        matrix[:row_limit,:col_limit] = encode_matrix(matrix[:row_limit, :col_limit], encode_line) 
+
+    # Show the image
+    plt.imshow(matrix)
+    plt.gray()
+    plt.show()
+
+    return matrix
+
+
+# Decodes a given image
+def image_synthesis(image, N=None):
+    # TODO: Figure out what to do with image/matrix as input (which one to choose)
+    # matrix = img.imread(image)
+    # matrix = matrix.astype(float)
+    matrix = image
+    
+    if N is None:
+        N = int(np.floor(np.log(len(matrix)))) - 1 # Number of iterations 
+
+    # For each iteration, find the subset of the image which has to be encoded,
+    # pass it to the encode_matrix function, and substitute it with the returned value
+    for i in reversed(range(0, N)):
+        # The index of the first column which doesnt have to be encoded in this iteration
+        # (Cols further to the right correspond to the high pass component of previous iterations)
+        col_limit = len(matrix)/pow(2,i) 
+        row_limit = len(matrix[0])/pow(2,i) # Same thing with rows (this way we can work with non square imgs)
+
+        matrix[:row_limit,:col_limit] = encode_matrix(matrix[:row_limit, :col_limit], decode_line) 
+
+        # Show the image
+        plt.imshow(matrix)
+        plt.gray()
+        plt.show()
+
+# Quantizes a vector using R bits
+def quantize(vector, R, minv=0, maxv=256):
     L = pow(2, R)
     bucket = (maxv - minv)/L
-
-    #print "Bucket: " + str(bucket)
 
     quantized = []
 
     for val in vector:
-        interval = val/bucket
+        interval = val-minv/bucket
         representative = interval*bucket + bucket/2
         quantized.append(representative)
-        #print representative
+        
     return quantized
+
+
+# # Quantizes a vector using R bits
+# def quantize(vector, step, minv):
+#     quantized = []
+
+#     for val in vector:
+#         interval = (val-minv)/step
+#         representative = interval*step + step/2
+#         quantized.append(representative)
+#         #print representative
+#     return quantized
 
 # Quantize the image passed as parameter (it has to be a matrix)
 def quantize_image(matrix, R):
-   
-    return np.apply_along_axis(quantize, 1, matrix, R)
+   return np.apply_along_axis(quantize, 1, matrix, R, minv=matrix.min(), maxv=matrix.max())
 
 
+# Calculate the entropy of the image passed as parameter (matrix)
+def entropy(image):
+    # calculate mean value from RGB channels and flatten to 1D array
+    vals = image.flatten()
+    # plot histogram with 255 bins
+    b, bins, patches = plt.hist(vals, 255)
+    plt.xlim([0, 255])
+    entropy = 0
+    for count in b:
+        norm = (count/sum(b))
+        if norm != 0:
+            entropy += norm * np.math.log(norm, 2)
 
+    return -entropy
+
+# N: number of decomposition levels
+def quantize_decomposed(matrix, N):
+    subbands = []
+
+    # Find the subbands
+    for i in range(1, N+1):
+        # The index of the first column which doesnt have to be encoded in this iteration
+        # (Cols further to the right correspond to the high pass component of previous iterations)
+        col_limit = len(matrix)/pow(2,i)
+        row_limit = len(matrix[0])/pow(2,i) # Same thing with rows (this way we can work with non square imgs)
+
+        subbands.append(matrix[row_limit:row_limit*2, 0:col_limit])
+        subbands.append(matrix[row_limit:row_limit*2, col_limit:col_limit*2])
+        subbands.append(matrix[0:row_limit, col_limit:col_limit*2])
+
+    
+    # For each possible quantization step, 
+    for R in range(1,7):
+        quantized_subbands = []
+        print("R: " + str(R))
+        for band in subbands:
+            quant_band = quantize_image(band, R)
+            quantized_subbands.append(quant_band)
+
+            print("Entropy before quant = ", entropy(band))
+            print("Entropy after quant = ", entropy(quant_band))
+            print("Diff = ", entropy(band)-entropy(quant_band))
+
+
+    
+quantize_decomposed(image_analysis(img_src, N=2), 2)
+
+# for subband in quantize_decomposed(image_analysis(img_src, N=2), 2):
+#     # Show the image
+#     plt.imshow(subband)
+#     plt.gray()
+#     plt.show()
+
+# image_analysis(img_src, N=2)
