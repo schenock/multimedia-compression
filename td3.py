@@ -4,6 +4,8 @@ import matplotlib.image as img
 import numpy as np
 import os
 import math
+from heapq import heappush, heappop, heapify
+from collections import defaultdict
 
 img_src = "lenaTest3.jpg"
 dir = os.path.dirname(__file__)
@@ -155,11 +157,8 @@ def quantize_image(matrix, R):
     return np.apply_along_axis(quantize, 1, matrix, R, minv=matrix.min(), maxv=matrix.max())
 
 
-# Calculate the entropy of the image passed as parameter (matrix)
-def entropy(image):
-    # calculate mean value from RGB channels and flatten to 1D array
-    vals = image.flatten()
-    
+# Creates a dictionary where each symbol has it's frequency associated to it
+def get_symbol2freq(vals):
     hist = {}
 
     # Get the histogram
@@ -168,6 +167,16 @@ def entropy(image):
             hist[v] = hist[v] + 1
         else:
             hist[v] = 1
+
+    return hist
+
+
+# Calculate the entropy of the image passed as parameter (matrix)
+def entropy(image):
+    # calculate mean value from RGB channels and flatten to 1D array
+    vals = image.flatten()
+    
+    hist = get_symbol2freq(vals)
     
     entropy = 0
     
@@ -219,7 +228,25 @@ def calc_MSE(original, quantized):
         MSE += pow(abs(val-quant), 2)
         print MSE
     return MSE/len(original)
-    
+
+
+def huff_encode(symb2freq):
+    """Huffman encode the given dict mapping symbols to weights"""
+    # Source: https://rosettacode.org/wiki/Huffman_coding#Python
+
+    heap = [[wt, [sym, ""]] for sym, wt in symb2freq.items()]
+    heapify(heap)
+    while len(heap) > 1:
+        lo = heappop(heap)
+        hi = heappop(heap)
+        for pair in lo[1:]:
+            pair[1] = '0' + pair[1]
+        for pair in hi[1:]:
+            pair[1] = '1' + pair[1]
+        heappush(heap, [lo[0] + hi[0]] + lo[1:] + hi[1:])
+    return sorted(heappop(heap)[1:], key=lambda p: (len(p[-1]), p))
+
+  
 quantize_subbands(image_analysis(img_src, N=2))
 
 # for subband in quantize_decomposed(image_analysis(img_src, N=2), 2):
