@@ -159,12 +159,20 @@ def quantize_image(matrix, R):
 def entropy(image):
     # calculate mean value from RGB channels and flatten to 1D array
     vals = image.flatten()
-    # plot histogram with 255 bins
-    b, bins, patches = plt.hist(vals, 255)
-    plt.xlim([0, 255])
+    
+    hist = {}
+
+    # Get the histogram
+    for v in vals:
+        if v in hist:
+            hist[v] = hist[v] + 1
+        else:
+            hist[v] = 1
+    
     entropy = 0
-    for count in b:
-        norm = (count/sum(b))
+    
+    for count in hist.values():
+        norm = (count/float(sum(hist.values())))
         if norm != 0:
             entropy += norm * np.math.log(norm, 2)
 
@@ -205,6 +213,12 @@ def quantize_subbands(image):
             print("Diff = ", entropy(band)-entropy(quant_band))
 
 
+def calc_MSE(original, quantized):
+    MSE = 0
+    for (val, quant) in zip(original, quantized):
+        MSE += pow(abs(val-quant), 2)
+        print MSE
+    return MSE/len(original)
     
 quantize_subbands(image_analysis(img_src, N=2))
 
@@ -214,4 +228,6 @@ quantize_subbands(image_analysis(img_src, N=2))
 #     plt.gray()
 #     plt.show()
 
+
 # image_analysis(img_src, N=2)
+
