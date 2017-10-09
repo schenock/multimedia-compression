@@ -124,11 +124,19 @@ def quantize(vector, R, minv=0, maxv=256):
     bins = np.linspace(minv, maxv, L+1)
     indexes = np.digitize(vector, bins)
 
+    return indexes
+
+
+# Dequantizes a vector given a bucket size
+def dequantize(indexes, bucket, minv):
     result = []
     for i in indexes:
         result.append(i*bucket - bucket/2.0 + minv)
 
     return result
+
+
+
     # #print("L:" + str(L)+" R:" + str(R)+" min:"+str(minv)+ " max:" + str(maxv) + " bucket:" +str(bucket))
     # quantized = []
 
@@ -204,22 +212,43 @@ def get_subbands(matrix, N):
 
     return subbands
 
-def quantize_subbands(image):
-    subbands = get_subbands(image, 2)
-    
-    # For each possible quantization step, 
+def quantize_subbands(img_src):
+    # 1. HAAR Transformation
+    transformed_image = image_analysis(img_src, N=2)
+
+    subbands = get_subbands(transformed_image, 2)
+
+    arr_min = []
+    arr_bucket = []
+
+    # 2. Quantization
     for R in range(1,8):
         quantized_subbands = []
-        print("R: " + str(R))
+        print("Bitrate R: " + str(R))
         for band in subbands:
+
+            # quantize subband with fixed bit rate R
             quant_band = quantize_image(band, R)
+
+            # calculate bucket for current subband
+            L = pow(2, R)
+            bucket = abs(band.max() - band.min()) / L
+
+            # save band min and bucket size
+            arr_min.append(band.min())
+            arr_bucket.append(bucket)
+
+            # save quantized subband
             quantized_subbands.append(quant_band)
+
 
             print("Entropy before quant = ", entropy(band))
             #print(band)
             print("Entropy after quant = ", entropy(quant_band))
             #print(quant_band)
             print("Diff = ", entropy(band)-entropy(quant_band))
+
+    # 3. Huffman Coding
 
 
 def calc_MSE(original, quantized):
@@ -228,7 +257,6 @@ def calc_MSE(original, quantized):
         MSE += pow(abs(val-quant), 2)
         print MSE
     return MSE/len(original)
-
 
 def huff_encode(symb2freq):
     """Huffman encode the given dict mapping symbols to weights"""
@@ -247,7 +275,8 @@ def huff_encode(symb2freq):
     return sorted(heappop(heap)[1:], key=lambda p: (len(p[-1]), p))
 
   
-quantize_subbands(image_analysis(img_src, N=2))
+    
+quantize_subbands(img_src)
 
 # for subband in quantize_decomposed(image_analysis(img_src, N=2), 2):
 #     # Show the image
