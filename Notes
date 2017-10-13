@@ -1,0 +1,31 @@
+
+Quantize each subband choosing a different quantization step (do not
+quantize the low frequency image) (see TD 1). Justify your choice.
+
+# 2. Quantization
+for R in range(1,8):
+    quantized_subbands = []
+    print("Bitrate R: " + str(R))
+    for band in subbands:
+
+        # quantize subband with fixed bit rate R
+        quant_band = quantize_image(band, R)
+
+        # calculate bucket for current subband
+        L = pow(2, R)
+        bucket = abs(band.max() - band.min()) / L
+
+        # save band min and bucket size
+        arr_min.append(band.min())
+        arr_bucket.append(bucket)
+
+        # save quantized subband
+        quantized_subbands.append(quant_band)
+
+
+        print("Entropy before quant = ", entropy(band))
+        print("Entropy after quant = ", entropy(quant_band))
+        print("Ratio = ", entropy(band)/entropy(quant_band))
+
+
+And we choose R = 5 for the first three bands (level 1 decomposition) and R = 6 for the other three, because they provide a reasonable compression ratio (not too much information lost)

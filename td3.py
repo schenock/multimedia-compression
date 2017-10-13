@@ -176,6 +176,11 @@ def get_symbol2freq(vals):
         else:
             hist[v] = 1
 
+    # Normalize the freqs
+    total = float(sum(hist.values()))    
+    for v in hist.values():
+        v = v / total
+
     return hist
 
 
@@ -183,14 +188,11 @@ def get_symbol2freq(vals):
 def entropy(image):
     # calculate mean value from RGB channels and flatten to 1D array
     vals = image.flatten()
-    
     hist = get_symbol2freq(vals)
     
     entropy = 0
-    
     for count in hist.values():
-        norm = (count/float(sum(hist.values())))
-        if norm != 0:
+        if count != 0:
             entropy += norm * np.math.log(norm, 2)
 
     return -entropy
@@ -211,6 +213,28 @@ def get_subbands(matrix, N):
         subbands.append(matrix[0:row_limit, col_limit:col_limit*2])
 
     return subbands
+
+# Given the array of subbands, reconstructs the original matrix
+# The first subbands in the array should be those corresponding to the first decomposition level
+# (the outer ones)
+# Assuming square input!
+def reconstruct_subbands(subbands, lowpass):
+    size = len(subbands[0])*2 # First subband is half the size of the original image
+    matrix = np.zeros(shape=(size,size))
+
+    N = len(subbands)/3 # There are three subbands per decomposition level
+
+    matrix[0:size/pow(2, N), 0:size/pow(2,N)] = lowpass
+
+    for i in range(0,N):
+        middle = size/pow(2,i+1)
+        
+        matrix[middle:middle*2, 0:middle] = subbands[i]
+        matrix[middle:middle*2, middle:middle*2] = subbands[i + 1]
+        matrix[0:middle, middle:middle*2] = subbands[i + 2]
+
+    return matrix
+
 
 def quantize_subbands(img_src):
     # 1. HAAR Transformation
