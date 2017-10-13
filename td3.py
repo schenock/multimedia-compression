@@ -116,6 +116,8 @@ def image_synthesis(image, N=None):
         plt.gray()
         plt.show()
 
+    return matrix
+
 # Quantizes a vector using R bits
 def quantize(vector, R, minv=0, maxv=256):
     L = pow(2, R)
@@ -177,7 +179,7 @@ def get_symbol2freq(vals):
             hist[v] = 1
 
     # Normalize the freqs
-    total = float(sum(hist.values()))    
+    total = float(sum(hist.values()))
     for v in hist.values():
         v = v / total
 
@@ -189,7 +191,7 @@ def entropy(image):
     # calculate mean value from RGB channels and flatten to 1D array
     vals = image.flatten()
     hist = get_symbol2freq(vals)
-    
+
     entropy = 0
     for count in hist.values():
         if count != 0:
@@ -212,7 +214,9 @@ def get_subbands(matrix, N):
         subbands.append(matrix[row_limit:row_limit*2, col_limit:col_limit*2])
         subbands.append(matrix[0:row_limit, col_limit:col_limit*2])
 
-    return subbands
+    return subbands, matrix[0:len(matrix)/pow(2,N), 0:len(matrix[0])/pow(2,N)]
+
+
 
 # Given the array of subbands, reconstructs the original matrix
 # The first subbands in the array should be those corresponding to the first decomposition level
@@ -228,7 +232,7 @@ def reconstruct_subbands(subbands, lowpass):
 
     for i in range(0,N):
         middle = size/pow(2,i+1)
-        
+
         matrix[middle:middle*2, 0:middle] = subbands[i]
         matrix[middle:middle*2, middle:middle*2] = subbands[i + 1]
         matrix[0:middle, middle:middle*2] = subbands[i + 2]
@@ -240,39 +244,59 @@ def quantize_subbands(img_src):
     # 1. HAAR Transformation
     transformed_image = image_analysis(img_src, N=2)
 
-    subbands = get_subbands(transformed_image, 2)
+    subbands, lowpass= get_subbands(transformed_image, 2)
 
     arr_min = []
     arr_bucket = []
 
     # 2. Quantization
-    for R in range(1,8):
-        quantized_subbands = []
+    # R = 5 for outer subbands
+    # R = 6 for inner subbands
+    # LL subband is not quantized
+    quantized_subbands = []
+    for idx, band in enumerate(subbands):
+
+        # different bitrate for subbands
+        if idx < 3:
+            R = 5
+        else:
+            R = 6
+
         print("Bitrate R: " + str(R))
-        for band in subbands:
 
-            # quantize subband with fixed bit rate R
-            quant_band = quantize_image(band, R)
+        # quantize subband with fixed bit rate R
+        quant_band = quantize_image(band, R)
 
-            # calculate bucket for current subband
-            L = pow(2, R)
-            bucket = abs(band.max() - band.min()) / L
+        # calculate bucket for current subband
+        L = pow(2, R)
+        bucket = abs(band.max() - band.min()) / L
 
-            # save band min and bucket size
-            arr_min.append(band.min())
-            arr_bucket.append(bucket)
+        # save band min and bucket size
+        arr_min.append(band.min())
+        arr_bucket.append(bucket)
 
-            # save quantized subband
-            quantized_subbands.append(quant_band)
+        # save quantized subband
+        quantized_subbands.append(quant_band)
 
+        #print("Entropy before quant = ", entropy(band))
+        #print(band)
+        #print("Entropy after quant = ", entropy(quant_band))
+        #print(quant_band)
+        print("Entropy Ratio = ", entropy(band)/entropy(quant_band))
 
-            print("Entropy before quant = ", entropy(band))
-            #print(band)
-            print("Entropy after quant = ", entropy(quant_band))
-            #print(quant_band)
-            print("Diff = ", entropy(band)-entropy(quant_band))
+    # 5. Synthesis
 
-    # 3. Huffman Coding
+    # 5.1 Synthesis of non quantized
+    reconstructed_non_quantized = image_synthesis(transformed_image, N = 2)
+
+    # 5.2 Synthesis of quantized
+    for idx, band in enumerate(subbands):
+        dequantized_subband = dequantize(band, arr_bucket[idx], arr_min[idx])
+
+    reconstructed_quantized
+
+    # 6.
+
 
 
 def calc_MSE(original, quantized):
@@ -298,9 +322,22 @@ def huff_encode(symb2freq):
         heappush(heap, [lo[0] + hi[0]] + lo[1:] + hi[1:])
     return sorted(heappop(heap)[1:], key=lambda p: (len(p[-1]), p))
 
-  
-    
+
+
 quantize_subbands(img_src)
+
+
+# 4. Calculate Peak Signal to Noise Ratio
+def calc_PSNR(original, quantized):
+    mse = calc_MSE(original, quantized)
+    return 10*np.log10(pow(255, 2))/mse
+
+
+
+
+
+
+main(img_src)
 
 # for subband in quantize_decomposed(image_analysis(img_src, N=2), 2):
 #     # Show the image
