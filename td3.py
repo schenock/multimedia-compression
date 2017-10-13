@@ -66,9 +66,7 @@ def encode_matrix(matrix, func):
 
 
 # Encodes a given image
-def image_analysis(image, N=None):
-    matrix = img.imread(image)
-    matrix = matrix.astype(float)
+def image_analysis(matrix, N=None):
     
     if N is None:
         N = int(np.floor(np.log(len(matrix)))) - 1 # Number of iterations 
@@ -84,9 +82,9 @@ def image_analysis(image, N=None):
         matrix[:row_limit,:col_limit] = encode_matrix(matrix[:row_limit, :col_limit], encode_line) 
 
     # Show the image
-    plt.imshow(matrix)
-    plt.gray()
-    plt.show()
+    #plt.imshow(matrix)
+    #plt.gray()
+    #plt.show()
 
     return matrix
 
@@ -111,10 +109,11 @@ def image_synthesis(image, N=None):
 
         matrix[:row_limit,:col_limit] = encode_matrix(matrix[:row_limit, :col_limit], decode_line) 
 
+        print "i = " + str(i)
         # Show the image
-        plt.imshow(matrix)
-        plt.gray()
-        plt.show()
+        #plt.imshow(matrix)
+        #plt.gray()
+        #plt.show()
 
     return matrix
 
@@ -195,7 +194,7 @@ def entropy(image):
     entropy = 0
     for count in hist.values():
         if count != 0:
-            entropy += norm * np.math.log(norm, 2)
+            entropy += count * np.math.log(count, 2)
 
     return -entropy
 
@@ -203,6 +202,9 @@ def entropy(image):
 def get_subbands(matrix, N):
     subbands = []
 
+    plt.imshow(matrix[0:len(matrix)/pow(2,N), 0:len(matrix[0])/pow(2,N)])
+    plt.gray()
+    plt.show()
     # Find the subbands
     for i in range(1, N+1):
         # The index of the first column which doesnt have to be encoded in this iteration
@@ -214,7 +216,13 @@ def get_subbands(matrix, N):
         subbands.append(matrix[row_limit:row_limit*2, col_limit:col_limit*2])
         subbands.append(matrix[0:row_limit, col_limit:col_limit*2])
 
-    return subbands, matrix[0:len(matrix)/pow(2,N), 0:len(matrix[0])/pow(2,N)]
+    # Find the dimensions of the lowpass component
+    size_lp_horiz = len(matrix)/pow(2, N)
+    size_lp_vert = len(matrix[0])/pow(2, N)
+
+    lowpass = np.zeros(shape = (size_lp_horiz, size_lp_vert))
+    lowpass[:] = matrix[0:size_lp_horiz, 0:size_lp_vert]
+    return (subbands, lowpass)
 
 
 
@@ -228,21 +236,27 @@ def reconstruct_subbands(subbands, lowpass):
 
     N = len(subbands)/3 # There are three subbands per decomposition level
 
-    matrix[0:size/pow(2, N), 0:size/pow(2,N)] = lowpass
 
     for i in range(0,N):
         middle = size/pow(2,i+1)
 
-        matrix[middle:middle*2, 0:middle] = subbands[i]
-        matrix[middle:middle*2, middle:middle*2] = subbands[i + 1]
-        matrix[0:middle, middle:middle*2] = subbands[i + 2]
+        matrix[middle:middle*2, 0:middle] = subbands[i*3]
+        matrix[middle:middle*2, middle:middle*2] = subbands[i*3 + 1]
+        matrix[0:middle, middle:middle*2] = subbands[i*3 + 2]
+
+    matrix[0:size/pow(2, N), 0:size/pow(2, N)] = lowpass
 
     return matrix
 
 
-def quantize_subbands(img_src):
+def main(img_src):
+
+    # Setup
+    image = img.imread(img_src)
+    image = image.astype(float)
+
     # 1. HAAR Transformation
-    transformed_image = image_analysis(img_src, N=2)
+    transformed_image = image_analysis(image, N=2)
 
     subbands, lowpass= get_subbands(transformed_image, 2)
 
@@ -290,21 +304,37 @@ def quantize_subbands(img_src):
     reconstructed_non_quantized = image_synthesis(transformed_image, N = 2)
 
     # 5.2 Synthesis of quantized
-    for idx, band in enumerate(subbands):
+    dequantized_subbands = []
+    for idx, band in enumerate(quantized_subbands):
         dequantized_subband = dequantize(band, arr_bucket[idx], arr_min[idx])
+        dequantized_subbands.append(dequantized_subband)
 
-    reconstructed_quantized
+    reconstructed_quantized = image_synthesis(reconstruct_subbands(dequantized_subbands, lowpass), N = 2)
 
-    # 6.
+    # Non quantized synthesis
+    reconstructed  = image_synthesis(transformed_image, N = 2)
+
+
+    # 6. Peak Signal to Noise Ratio
+    r = calc_PSNR(image, reconstructed)
+    rq = calc_PSNR(image, reconstructed_quantized)
+    print r
+    print rq
+    D = r/rq
+    print "Distortion:  " + str(D)
 
 
 
 def calc_MSE(original, quantized):
-    MSE = 0
-    for (val, quant) in zip(original, quantized):
-        MSE += pow(abs(val-quant), 2)
-        print MSE
-    return MSE/len(original)
+    return ((original - quantized) ** 2).mean(axis=None)
+
+
+
+# 4. Calculate Peak Signal to Noise Ratio
+def calc_PSNR(original, quantized):
+    mse = calc_MSE(original, quantized)
+    return 10*np.log10(pow(255, 2))/mse
+
 
 def huff_encode(symb2freq):
     """Huffman encode the given dict mapping symbols to weights"""
@@ -324,20 +354,10 @@ def huff_encode(symb2freq):
 
 
 
-quantize_subbands(img_src)
-
-
-# 4. Calculate Peak Signal to Noise Ratio
-def calc_PSNR(original, quantized):
-    mse = calc_MSE(original, quantized)
-    return 10*np.log10(pow(255, 2))/mse
-
-
-
-
-
-
 main(img_src)
+
+
+
 
 # for subband in quantize_decomposed(image_analysis(img_src, N=2), 2):
 #     # Show the image
