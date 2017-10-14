@@ -11,8 +11,6 @@ img_src = "lenaTest3.jpg"
 dir = os.path.dirname(__file__)
 filename = os.path.join(dir, img_src)
 
-vec = [88, 88, 89, 90, 92, 94, 96, 97]
-
 
 # Encodes the line passed as parameter.
 def encode_line(vec):
@@ -52,7 +50,8 @@ def encode_matrix(matrix, func):
 
 # Encodes a given image
 def image_analysis(matrix, N=None):
-    
+    newmatrix = np.empty_like(matrix)
+
     if N is None:
         N = int(np.floor(np.log(len(matrix)))) - 1 # Number of iterations 
 
@@ -64,22 +63,20 @@ def image_analysis(matrix, N=None):
         col_limit = len(matrix)/pow(2,i) 
         row_limit = len(matrix[0])/pow(2,i) # Same thing with rows (this way we can work with non square imgs)
 
-        matrix[:row_limit,:col_limit] = encode_matrix(matrix[:row_limit, :col_limit], encode_line) 
+        newmatrix[:row_limit,:col_limit] = encode_matrix(matrix[:row_limit, :col_limit], encode_line) 
 
     # Show the image
     #plt.imshow(matrix)
     #plt.gray()
     #plt.show()
 
-    return matrix
+    return newmatrix
 
 
 # Decodes a given image
-def image_synthesis(image, N=None):
-    # TODO: Figure out what to do with image/matrix as input (which one to choose)
-    # matrix = img.imread(image)
-    # matrix = matrix.astype(float)
-    matrix = image
+def image_synthesis(matrix, N=None):
+    newmatrix = np.empty_like(matrix)
+    newmatrix[:] = matrix
     
     if N is None:
         N = int(np.floor(np.log(len(matrix)))) - 1 # Number of iterations 
@@ -92,14 +89,14 @@ def image_synthesis(image, N=None):
         col_limit = len(matrix)/pow(2,i) 
         row_limit = len(matrix[0])/pow(2,i) # Same thing with rows (this way we can work with non square imgs)
 
-        matrix[:row_limit,:col_limit] = encode_matrix(matrix[:row_limit, :col_limit], decode_line) 
+        newmatrix[:row_limit,:col_limit] = encode_matrix(matrix[:row_limit, :col_limit], decode_line) 
 
         # Show the image
         #plt.imshow(matrix)
         #plt.gray()
         #plt.show()
 
-    return matrix
+    return newmatrix
 
 # Quantizes a vector using R bits
 def quantize(vector, R, minv=0, maxv=256):
@@ -120,30 +117,6 @@ def dequantize(indexes, bucket, minv):
 
     return result
 
-
-
-    # #print("L:" + str(L)+" R:" + str(R)+" min:"+str(minv)+ " max:" + str(maxv) + " bucket:" +str(bucket))
-    # quantized = []
-
-    # for val in vector:
-    #     interval = (val)/bucket
-    #     representative = (interval*bucket + bucket/2)
-    #     quantized.append(representative)
-        
-    # return quantized
-
-
-# # Quantizes a vector using R bits
-# def quantize(vector, step, minv):
-#     quantized = []
-
-#     for val in vector:
-#         interval = (val-minv)/step
-#         representative = interval*step + step/2
-#         quantized.append(representative)
-#         #print representative
-#     return quantized
-
 # Quantize the image passed as parameter (it has to be a matrix)
 def quantize_image(matrix, R):
     #print("MIN:" + str(matrix.min()) + " MAX:" + str(matrix.max()))
@@ -161,26 +134,25 @@ def get_symbol2freq(vals):
         else:
             hist[v] = 1
 
-    # Normalize the freqs
-    total = float(sum(hist.values()))
-    for v in hist.values():
-        v = v / total
-
     return hist
 
 
 # Calculate the entropy of the image passed as parameter (matrix)
 def entropy(image):
-    # calculate mean value from RGB channels and flatten to 1D array
+    # Flatten to 1D array
     vals = image.flatten()
     hist = get_symbol2freq(vals)
+
+    # Normalize the freqs
+    total = float(sum(hist.values()))
 
     entropy = 0
     for count in hist.values():
         if count != 0:
-            entropy += count * np.math.log(count, 2)
+            norm = count/total
+            entropy += norm * np.math.log(norm, 2)
 
-    return -entropy
+    return (entropy*(-1))
 
 # N: number of decomposition levels
 def get_subbands(matrix, N):
@@ -234,11 +206,12 @@ def main(img_src):
 
     # Setup
     image = img.imread(img_src)
-    image = image.astype(float)
+    image = image.astype(np.float64)
 
     # 1. HAAR Transformation
-    transformed_image = image_analysis(image, N=2)
+    transformed_image = image_analysis(image[:], N=2)
 
+    print "Entropy " + str(entropy(image))
     subbands,lowpass= get_subbands(transformed_image, 2)
 
     arr_min = []
@@ -280,7 +253,6 @@ def main(img_src):
         #print("Entropy Ratio = ", entropy(band)/entropy(quant_band))
 
     # 5. Synthesis
-
     # 5.1 Synthesis of non quantized
     reconstructed_non_quantized = image_synthesis(transformed_image, N = 2)
 
@@ -296,8 +268,9 @@ def main(img_src):
     reconstructed  = image_synthesis(transformed_image, N = 2)
 
     # 6. Distortion using Peak Signal to Noise Ratio
-    D = calc_PSNR(reconstructed, reconstructed_quantized)
-    
+    D = calc_PSNR(image, reconstructed_quantized)
+    print "max " + str(reconstructed_quantized.max()) + "min " + str(reconstructed_quantized.min())
+    #print reconstructed_quantized[0]
     print "Distortion:  " + str(D)
 
     # TD4
@@ -317,15 +290,15 @@ def main(img_src):
 
     print "Huffman entropy compression ratio: " + str(get_huffman_entropy(reconstructed)/get_huffman_entropy(reconstructed_quantized))
 
-
 # MSE
 def calc_MSE(original, quantized):
-    return ((original - quantized) ** 2).mean(axis=None)
+    return (np.square(original - quantized)).mean(axis=None)
 
 # Peak Signal to Noise Ratio
 def calc_PSNR(original, quantized):
     mse = calc_MSE(original, quantized)
-    return 10*np.log10(pow(255, 2))/mse
+    print mse
+    return 10*np.log10(pow(255, 2)/mse)
 
 def huff_encode(symb2freq):
     """Huffman encode the given dict mapping symbols to weights"""
