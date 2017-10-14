@@ -41,21 +41,6 @@ def decode_line(vec):
 # Receives a matrix and encodes it, row-wise and column-wise.
 # Returns the encoded matrix
 def encode_matrix(matrix, func):
-    # rowmatrix = [] # Matrix to store the results of encoding by row
-    # newmatrix = [] # Matrix to store the final results
-
-    # Encode all rows in our original image
-    # for row in matrix:
-    #     newmatrix.append(encode_line(row))
-    
-    # Transpose the matrix so that we operate with columns this time
-    # transposed = np.transpose(rowmatrix)
-    # for col in transposed:
-    #     newmatrix.append(encode_line(col))
-    
-    # # We have to transpose it again before returning it
-    # return np.array((np.transpose(newmatrix)))
-
     matrix = np.apply_along_axis(func, 1, matrix)
     matrix = np.apply_along_axis(func, 0, matrix)
 
@@ -109,7 +94,6 @@ def image_synthesis(image, N=None):
 
         matrix[:row_limit,:col_limit] = encode_matrix(matrix[:row_limit, :col_limit], decode_line) 
 
-        print "i = " + str(i)
         # Show the image
         #plt.imshow(matrix)
         #plt.gray()
@@ -202,9 +186,6 @@ def entropy(image):
 def get_subbands(matrix, N):
     subbands = []
 
-    plt.imshow(matrix[0:len(matrix)/pow(2,N), 0:len(matrix[0])/pow(2,N)])
-    plt.gray()
-    plt.show()
     # Find the subbands
     for i in range(1, N+1):
         # The index of the first column which doesnt have to be encoded in this iteration
@@ -258,7 +239,7 @@ def main(img_src):
     # 1. HAAR Transformation
     transformed_image = image_analysis(image, N=2)
 
-    subbands, lowpass= get_subbands(transformed_image, 2)
+    subbands,lowpass= get_subbands(transformed_image, 2)
 
     arr_min = []
     arr_bucket = []
@@ -276,7 +257,7 @@ def main(img_src):
         else:
             R = 6
 
-        print("Bitrate R: " + str(R))
+        #print("Bitrate R: " + str(R))
 
         # quantize subband with fixed bit rate R
         quant_band = quantize_image(band, R)
@@ -296,7 +277,7 @@ def main(img_src):
         #print(band)
         #print("Entropy after quant = ", entropy(quant_band))
         #print(quant_band)
-        print("Entropy Ratio = ", entropy(band)/entropy(quant_band))
+        #print("Entropy Ratio = ", entropy(band)/entropy(quant_band))
 
     # 5. Synthesis
 
@@ -311,30 +292,40 @@ def main(img_src):
 
     reconstructed_quantized = image_synthesis(reconstruct_subbands(dequantized_subbands, lowpass), N = 2)
 
-    # Non quantized synthesis
+    # Non quantized synthesis (= original image)
     reconstructed  = image_synthesis(transformed_image, N = 2)
 
-
-    # 6. Peak Signal to Noise Ratio
-    r = calc_PSNR(image, reconstructed)
-    rq = calc_PSNR(image, reconstructed_quantized)
-    print r
-    print rq
-    D = r/rq
+    # 6. Distortion using Peak Signal to Noise Ratio
+    D = calc_PSNR(reconstructed, reconstructed_quantized)
+    
     print "Distortion:  " + str(D)
 
+    # TD4
+    # --------------------------------
+
+    # 1. Determine Huffman code asociated to lvl 2 haar decomposition
+    freqs = get_symbol2freq(transformed_image.flatten())
+    code  = huff_encode(freqs)
+    print "Symbols " + str(len(freqs))
+    # 2. Compute average length
+    print"Huffman entropy (total): " + str(get_huffman_entropy(transformed_image))
+    print "Huffman entropy per subband: "
+    
+    for idx,band in enumerate(subbands):
+        print("Subband " + str(idx) + ":" + str(get_huffman_entropy(band)))
 
 
+    print "Huffman entropy compression ratio: " + str(get_huffman_entropy(reconstructed)/get_huffman_entropy(reconstructed_quantized))
+
+
+# MSE
 def calc_MSE(original, quantized):
     return ((original - quantized) ** 2).mean(axis=None)
 
-
-
-# 4. Calculate Peak Signal to Noise Ratio
+# Peak Signal to Noise Ratio
 def calc_PSNR(original, quantized):
     mse = calc_MSE(original, quantized)
     return 10*np.log10(pow(255, 2))/mse
-
 
 def huff_encode(symb2freq):
     """Huffman encode the given dict mapping symbols to weights"""
@@ -353,6 +344,24 @@ def huff_encode(symb2freq):
     return sorted(heappop(heap)[1:], key=lambda p: (len(p[-1]), p))
 
 
+# Calculate the huffman entropy of a given image
+def get_huffman_entropy(matrix):
+    freqs = get_symbol2freq(matrix.flatten())
+    code = huff_encode(freqs)
+
+    return get_code_length(code, freqs)
+
+# Calculates the average length of a code, given the code itself
+# and the relative frequencies of each word (they have to be normalized)
+def get_code_length(code, freqs):
+    length = 0
+
+    # Freqs have to be normalized
+    total = float(sum(freqs.values()))
+    for symbol,codeword in code:
+        length += len(codeword)*(freqs[symbol]/total)
+
+    return length
 
 main(img_src)
 
