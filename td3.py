@@ -51,6 +51,7 @@ def encode_matrix(matrix, func):
 # Encodes a given image
 def image_analysis(matrix, N=None):
     newmatrix = np.empty_like(matrix)
+    newmatrix[:] = matrix
 
     if N is None:
         N = int(np.floor(np.log(len(matrix)))) - 1 # Number of iterations 
@@ -63,7 +64,7 @@ def image_analysis(matrix, N=None):
         col_limit = len(matrix)/pow(2,i) 
         row_limit = len(matrix[0])/pow(2,i) # Same thing with rows (this way we can work with non square imgs)
 
-        newmatrix[:row_limit,:col_limit] = encode_matrix(matrix[:row_limit, :col_limit], encode_line) 
+        newmatrix[:row_limit,:col_limit] = encode_matrix(newmatrix[:row_limit, :col_limit], encode_line) 
 
     # Show the image
     #plt.imshow(matrix)
@@ -89,7 +90,7 @@ def image_synthesis(matrix, N=None):
         col_limit = len(matrix)/pow(2,i) 
         row_limit = len(matrix[0])/pow(2,i) # Same thing with rows (this way we can work with non square imgs)
 
-        newmatrix[:row_limit,:col_limit] = encode_matrix(matrix[:row_limit, :col_limit], decode_line) 
+        newmatrix[:row_limit,:col_limit] = encode_matrix(newmatrix[:row_limit, :col_limit], decode_line) 
 
         # Show the image
         #plt.imshow(matrix)
@@ -211,7 +212,6 @@ def main(img_src):
     # 1. HAAR Transformation
     transformed_image = image_analysis(image[:], N=2)
 
-    print "Entropy " + str(entropy(image))
     subbands,lowpass= get_subbands(transformed_image, 2)
 
     arr_min = []
@@ -262,7 +262,8 @@ def main(img_src):
         dequantized_subband = dequantize(band, arr_bucket[idx], arr_min[idx])
         dequantized_subbands.append(dequantized_subband)
 
-    reconstructed_quantized = image_synthesis(reconstruct_subbands(dequantized_subbands, lowpass), N = 2)
+    transformed_quantized = reconstruct_subbands(dequantized_subbands, lowpass)
+    reconstructed_quantized = image_synthesis(transformed_quantized, N = 2)
 
     # Non quantized synthesis (= original image)
     reconstructed  = image_synthesis(transformed_image, N = 2)
@@ -285,10 +286,14 @@ def main(img_src):
     print "Huffman entropy per subband: "
     
     for idx,band in enumerate(subbands):
-        print("Subband " + str(idx) + ":" + str(get_huffman_entropy(band)))
+        print("Subband " + str(idx) + ":" + str(get_code_length(code, get_symbol2freq(band.flatten()))))
 
+    print "Huffman entropy compression ratio: " + str(get_huffman_entropy(transformed_image)/get_huffman_entropy(transformed_quantized))
 
-    print "Huffman entropy compression ratio: " + str(get_huffman_entropy(reconstructed)/get_huffman_entropy(reconstructed_quantized))
+    print "Shannon entropy: " + str(entropy(transformed_image))
+    print "Huffman entropy: " + str(get_huffman_entropy(transformed_image))
+    # Logically the Huffman entropy is higher because 
+
 
 # MSE
 def calc_MSE(original, quantized):
@@ -314,8 +319,13 @@ def huff_encode(symb2freq):
         for pair in hi[1:]:
             pair[1] = '1' + pair[1]
         heappush(heap, [lo[0] + hi[0]] + lo[1:] + hi[1:])
-    return sorted(heappop(heap)[1:], key=lambda p: (len(p[-1]), p))
+    code = sorted(heappop(heap)[1:], key=lambda p: (len(p[-1]), p))
+    code_dict = {}
+    
+    for symbol,codeword in code: 
+        code_dict[symbol] = codeword
 
+    return code_dict
 
 # Calculate the huffman entropy of a given image
 def get_huffman_entropy(matrix):
@@ -331,8 +341,9 @@ def get_code_length(code, freqs):
 
     # Freqs have to be normalized
     total = float(sum(freqs.values()))
-    for symbol,codeword in code:
-        length += len(codeword)*(freqs[symbol]/total)
+
+    for symbol,freq in freqs.iteritems():
+        length += len(code[symbol])*(freq/total)
 
     return length
 
