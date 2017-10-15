@@ -6,10 +6,11 @@ import os
 import math
 from heapq import heappush, heappop, heapify
 from collections import defaultdict
+import glymur
 
 img_src = "lenaTest3.jpg"
-dir = os.path.dirname(__file__)
-filename = os.path.join(dir, img_src)
+dirname = os.path.dirname(__file__)
+filename = os.path.join(dirname, img_src)
 
 
 # Encodes the line passed as parameter.
@@ -292,7 +293,73 @@ def main(img_src):
 
     print "Shannon entropy: " + str(entropy(transformed_image))
     print "Huffman entropy: " + str(get_huffman_entropy(transformed_image))
-    # Logically the Huffman entropy is higher because 
+    # Logically the Huffman entropy is higher because
+
+    distortions = []
+    bpp = []
+    pnsrs = []
+
+    # Save as JPEG
+    for q in [10, 50, 70, 90]:
+        tmp_src = os.path.join(dirname, "tmp1.jpg")
+        
+        # Save the image
+        Image.fromarray(image).convert("L").save(tmp_src, quality=q)
+        comp_size = os.path.getsize(tmp_src)*8 # getsize returns bytes
+
+        compressed = img.imread(tmp_src)
+        pnsrs.append(calc_PSNR(image, compressed))
+        distortions.append(calc_MSE(image, compressed))
+        bpp.append(comp_size/(512.0*512.0))
+
+    print distortions
+    print bpp
+
+    plt.plot(bpp, distortions)
+    plt.title('JPEG: distortion vs bit rate')
+    plt.xlabel('bpp', fontsize=14)
+    plt.ylabel('D', fontsize=14)
+    plt.show()
+
+    plt.plot(bpp, pnsrs)
+    plt.title('JPEG: PSNR vs bit rate')
+    plt.xlabel('bpp', fontsize=14)
+    plt.ylabel('PSNR', fontsize=14)
+    plt.show()
+
+    # Now as JPEG2000
+    distortions = []
+    bpp = []
+    pnsrs = []
+
+    for q in range(5, 95, 5):
+        file_name = "tmp" + str(q) +".jp2"
+        tmp_src = os.path.join(dirname, file_name)#"tmp1.jp2")
+        
+        # Save the image
+        j = glymur.Jp2k(tmp_src, image[:].astype(np.uint8),cratios=[q])
+        #j.write(image[:].astype(np.uint8))
+        comp_size = os.path.getsize(tmp_src)*8 # getsize returns bytes
+
+        compressed = img.imread(tmp_src)
+        pnsrs.append(calc_PSNR(image, compressed))
+        distortions.append(calc_MSE(image, compressed))
+        bpp.append(comp_size/(512.0*512.0))
+
+    print distortions
+    print bpp
+
+    plt.plot(bpp, distortions)
+    plt.title('JPEG 2000: distortion vs bit rate')
+    plt.xlabel('bpp', fontsize=14)
+    plt.ylabel('D', fontsize=14)
+    plt.show()
+
+    plt.plot(bpp, pnsrs)
+    plt.title('JPEG 2000: PSNR vs bit rate')
+    plt.xlabel('bpp', fontsize=14)
+    plt.ylabel('PSNR', fontsize=14)
+    plt.show()
 
 
 # MSE
@@ -302,7 +369,6 @@ def calc_MSE(original, quantized):
 # Peak Signal to Noise Ratio
 def calc_PSNR(original, quantized):
     mse = calc_MSE(original, quantized)
-    print mse
     return 10*np.log10(pow(255, 2)/mse)
 
 def huff_encode(symb2freq):
