@@ -210,6 +210,10 @@ def main(img_src):
     image = img.imread(img_src)
     image = image.astype(np.float64)
 
+    print ""
+    print "-------"
+    print "TD3"
+    print "-------"
     # 1. HAAR Transformation
     transformed_image = image_analysis(image[:], N=2)
 
@@ -223,18 +227,26 @@ def main(img_src):
     # R = 6 for inner subbands
     # LL subband is not quantized
     quantized_subbands = []
+    total_entropy = entropy(lowpass)
+    total_entropy_quant = entropy(lowpass)
     for idx, band in enumerate(subbands):
 
-        # different bitrate for subbands
+        # Different bitrate for subbands
+        # Weight is used to calculate the contribution of each subband to the total entropy
         if idx < 3:
             R = 5
+            weight = 1/4.0
         else:
             R = 6
+            weight = 1/16.0
 
         #print("Bitrate R: " + str(R))
 
         # quantize subband with fixed bit rate R
         quant_band = quantize_image(band, R)
+
+        total_entropy += entropy(band)*weight
+        total_entropy_quant += entropy(quant_band)*weight
 
         # calculate bucket for current subband
         L = pow(2, R)
@@ -252,6 +264,8 @@ def main(img_src):
         #print("Entropy after quant = ", entropy(quant_band))
         #print(quant_band)
         #print("Entropy Ratio = ", entropy(band)/entropy(quant_band))
+
+    print "Entropy compression ratio = " + str(total_entropy_quant/total_entropy)
 
     # 5. Synthesis
     # 5.1 Synthesis of non quantized
@@ -271,17 +285,18 @@ def main(img_src):
 
     # 6. Distortion using Peak Signal to Noise Ratio
     D = calc_PSNR(image, reconstructed_quantized)
-    print "max " + str(reconstructed_quantized.max()) + "min " + str(reconstructed_quantized.min())
-    #print reconstructed_quantized[0]
-    print "Distortion:  " + str(D)
+    print "PSNR = " + str(D) + "dB"
 
     # TD4
     # --------------------------------
-
+    print ""
+    print "-------"
+    print "TD4"
+    print "-------"
     # 1. Determine Huffman code asociated to lvl 2 haar decomposition
     freqs = get_symbol2freq(transformed_image.flatten())
     code  = huff_encode(freqs)
-    print "Symbols " + str(len(freqs))
+    
     # 2. Compute average length
     print"Huffman entropy (total): " + str(get_huffman_entropy(transformed_image))
     print "Huffman entropy per subband: "
@@ -311,9 +326,6 @@ def main(img_src):
         pnsrs.append(calc_PSNR(image, compressed))
         distortions.append(calc_MSE(image, compressed))
         bpp.append(comp_size/(512.0*512.0))
-
-    print distortions
-    print bpp
 
     plt.plot(bpp, distortions)
     plt.title('JPEG: distortion vs bit rate')
@@ -345,9 +357,6 @@ def main(img_src):
         pnsrs.append(calc_PSNR(image, compressed))
         distortions.append(calc_MSE(image, compressed))
         bpp.append(comp_size/(512.0*512.0))
-
-    print distortions
-    print bpp
 
     plt.plot(bpp, distortions)
     plt.title('JPEG 2000: distortion vs bit rate')
