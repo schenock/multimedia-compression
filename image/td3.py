@@ -6,14 +6,38 @@ import os
 import math
 from heapq import heappush, heappop, heapify
 from collections import defaultdict
-import glymur
+
 
 img_src = "lenaTest3.jpg"
 dirname = os.path.dirname(__file__)
 filename = os.path.join(dirname, img_src)
 
 
-# Encodes the line passed as parameter.
+# Quantizes a vector using R bits
+def quantize(vector, R, minv=0, maxv=256):
+    L = pow(2, R)
+    bucket = abs(maxv - minv)/L
+
+    bins = np.linspace(minv, maxv, L+1)
+    indexes = np.digitize(vector, bins)
+
+    return indexes
+
+# Dequantizes a vector given a bucket size
+def dequantize(indexes, bucket, minv):
+    result = []
+    for i in indexes:
+        result.append(i*bucket - bucket/2.0 + minv)
+
+    return result
+
+# Quantize the image passed as parameter (it has to be a matrix)
+def quantize_image(matrix, R):
+    #print("MIN:" + str(matrix.min()) + " MAX:" + str(matrix.max()))
+    return np.apply_along_axis(quantize, 1, matrix, R, minv=matrix.min(), maxv=matrix.max())
+
+
+# Encodes (Haar wavelet transform) the line passed as parameter.
 def encode_line(vec):
     averages = []
     diffs = []
@@ -24,7 +48,7 @@ def encode_line(vec):
     
     return averages + diffs
 
-
+# Perfroms the Haar wavelet synthesis of the provided line
 def decode_line(vec):
     averages = vec[:len(vec)/2]
     diffs = vec[len(vec)/2:]
@@ -45,10 +69,6 @@ def encode_matrix(matrix, func):
 
     return matrix
 
-
-#print(encode_line(encode_line(vec)))
-
-
 # Encodes a given image
 def image_analysis(matrix, N=None):
     newmatrix = np.empty_like(matrix)
@@ -67,11 +87,6 @@ def image_analysis(matrix, N=None):
 
         newmatrix[:row_limit,:col_limit] = encode_matrix(newmatrix[:row_limit, :col_limit], encode_line) 
 
-    # Show the image
-    #plt.imshow(matrix)
-    #plt.gray()
-    #plt.show()
-
     return newmatrix
 
 
@@ -80,8 +95,9 @@ def image_synthesis(matrix, N=None):
     newmatrix = np.empty_like(matrix)
     newmatrix[:] = matrix
     
+    # If no N is provided, find the optimal number of decomposition levels
     if N is None:
-        N = int(np.floor(np.log(len(matrix)))) - 1 # Number of iterations 
+        N = int(np.floor(np.log(len(matrix)))) - 1 # Number of iterations (levels)
 
     # For each iteration, find the subset of the image which has to be encoded,
     # pass it to the encode_matrix function, and substitute it with the returned value
@@ -93,37 +109,7 @@ def image_synthesis(matrix, N=None):
 
         newmatrix[:row_limit,:col_limit] = encode_matrix(newmatrix[:row_limit, :col_limit], decode_line) 
 
-        # Show the image
-        #plt.imshow(matrix)
-        #plt.gray()
-        #plt.show()
-
     return newmatrix
-
-# Quantizes a vector using R bits
-def quantize(vector, R, minv=0, maxv=256):
-    L = pow(2, R)
-    bucket = abs(maxv - minv)/L
-
-    bins = np.linspace(minv, maxv, L+1)
-    indexes = np.digitize(vector, bins)
-
-    return indexes
-
-
-# Dequantizes a vector given a bucket size
-def dequantize(indexes, bucket, minv):
-    result = []
-    for i in indexes:
-        result.append(i*bucket - bucket/2.0 + minv)
-
-    return result
-
-# Quantize the image passed as parameter (it has to be a matrix)
-def quantize_image(matrix, R):
-    #print("MIN:" + str(matrix.min()) + " MAX:" + str(matrix.max()))
-    return np.apply_along_axis(quantize, 1, matrix, R, minv=matrix.min(), maxv=matrix.max())
-
 
 # Creates a dictionary where each symbol has it's frequency associated to it
 def get_symbol2freq(vals):
@@ -156,6 +142,7 @@ def entropy(image):
 
     return (entropy*(-1))
 
+# Returns an array containing the different subbands present in a N-level Haar wavelet decomposition
 # N: number of decomposition levels
 def get_subbands(matrix, N):
     subbands = []
@@ -205,8 +192,7 @@ def reconstruct_subbands(subbands, lowpass):
 
 
 def main(img_src):
-
-    # Setup
+    # Load the image
     image = img.imread(img_src)
     image = image.astype(np.float64)
 
@@ -216,6 +202,12 @@ def main(img_src):
     print "-------"
     # 1. HAAR Transformation
     transformed_image = image_analysis(image[:], N=2)
+
+    # Show the image
+    plt.imshow(transformed_image)
+    plt.gray()
+    plt.title("TD2: Level 2 Haar wavelet decomposition")
+    plt.show()
 
     subbands,lowpass= get_subbands(transformed_image, 2)
 
@@ -259,10 +251,6 @@ def main(img_src):
         # save quantized subband
         quantized_subbands.append(quant_band)
 
-        #print("Entropy before quant = ", entropy(band))
-        #print(band)
-        #print("Entropy after quant = ", entropy(quant_band))
-        #print(quant_band)
         #print("Entropy Ratio = ", entropy(band)/entropy(quant_band))
 
     print "Entropy compression ratio = " + str(total_entropy_quant/total_entropy)
@@ -301,10 +289,11 @@ def main(img_src):
     print"Huffman entropy (total): " + str(get_huffman_entropy(transformed_image))
     print "Huffman entropy per subband: "
     
+    print "Lowpass :" + str(get_code_length(code, get_symbol2freq(lowpass.flatten())))
     for idx,band in enumerate(subbands):
         print("Subband " + str(idx) + ":" + str(get_code_length(code, get_symbol2freq(band.flatten()))))
 
-    print "Huffman entropy compression ratio: " + str(get_huffman_entropy(transformed_image)/get_huffman_entropy(transformed_quantized))
+    print "Huffman entropy compression ratio: " + str(get_huffman_entropy(transformed_quantized)/get_huffman_entropy(transformed_image))
 
     print "Shannon entropy: " + str(entropy(transformed_image))
     print "Huffman entropy: " + str(get_huffman_entropy(transformed_image))
@@ -314,7 +303,7 @@ def main(img_src):
     bpp = []
     pnsrs = []
 
-    # Save as JPEG
+    # Save as JPEG with different values of quality
     for q in [10, 50, 70, 90]:
         tmp_src = os.path.join(dirname, "tmp1.jpg")
         
@@ -339,36 +328,39 @@ def main(img_src):
     plt.ylabel('PSNR', fontsize=14)
     plt.show()
 
-    # Now as JPEG2000
-    distortions = []
-    bpp = []
-    pnsrs = []
 
-    for q in range(5, 95, 5):
-        file_name = "tmp" + str(q) +".jp2"
-        tmp_src = os.path.join(dirname, file_name)#"tmp1.jp2")
-        
-        # Save the image
-        j = glymur.Jp2k(tmp_src, image[:].astype(np.uint8),cratios=[q])
-        #j.write(image[:].astype(np.uint8))
-        comp_size = os.path.getsize(tmp_src)*8 # getsize returns bytes
+    try:
+        import glymur
+        # Now as JPEG2000
+        distortions = []
+        bpp = []
+        pnsrs = []
 
-        compressed = img.imread(tmp_src)
-        pnsrs.append(calc_PSNR(image, compressed))
-        distortions.append(calc_MSE(image, compressed))
-        bpp.append(comp_size/(512.0*512.0))
+        for q in range(5, 95, 5):
+            tmp_src = os.path.join(dirname, "tmp1.jp2")
+            
+            # Save the image
+            j = glymur.Jp2k(tmp_src, image[:].astype(np.uint8),cratios=[q])
+            comp_size = os.path.getsize(tmp_src)*8 # getsize returns bytes
 
-    plt.plot(bpp, distortions)
-    plt.title('JPEG 2000: distortion vs bit rate')
-    plt.xlabel('bpp', fontsize=14)
-    plt.ylabel('D', fontsize=14)
-    plt.show()
+            compressed = img.imread(tmp_src)
+            pnsrs.append(calc_PSNR(image, compressed))
+            distortions.append(calc_MSE(image, compressed))
+            bpp.append(comp_size/(512.0*512.0))
 
-    plt.plot(bpp, pnsrs)
-    plt.title('JPEG 2000: PSNR vs bit rate')
-    plt.xlabel('bpp', fontsize=14)
-    plt.ylabel('PSNR', fontsize=14)
-    plt.show()
+        plt.plot(bpp, distortions)
+        plt.title('JPEG 2000: distortion vs bit rate')
+        plt.xlabel('bpp', fontsize=14)
+        plt.ylabel('D', fontsize=14)
+        plt.show()
+
+        plt.plot(bpp, pnsrs)
+        plt.title('JPEG 2000: PSNR vs bit rate')
+        plt.xlabel('bpp', fontsize=14)
+        plt.ylabel('PSNR', fontsize=14)
+        plt.show()
+    except:
+        print "Could not perform the JPEG 2000 section, because Glymur python module is missing."
 
 
 # MSE
@@ -423,16 +415,3 @@ def get_code_length(code, freqs):
     return length
 
 main(img_src)
-
-
-
-
-# for subband in quantize_decomposed(image_analysis(img_src, N=2), 2):
-#     # Show the image
-#     plt.imshow(subband)
-#     plt.gray()
-#     plt.show()
-
-
-# image_analysis(img_src, N=2)
-
