@@ -55,14 +55,32 @@ def quantize_image(R):
 
 
 def quantize_lena():
-    for R in range(1, 7):
-        arr = quantize_image(R)
-        print arr
-        plt.imshow(arr, interpolation='nearest')
-        plt.gray()
-        plt.title("Levels: " + str(pow(2,R)))
-        plt.show()
 
+    matrix = img.imread('/home/schenock/Desktop/lenaTest3.jpg')
+
+    entropy_arr = []
+    mse_arr = []
+
+    for R in range(1, 8):
+        arr = quantize_image(R)
+
+        e = entropy2(arr)
+        entropy_arr.append(e)
+
+        mse = calc_MSE2(matrix, arr)
+        mse_arr.append(mse)
+        #print arr
+        #plt.imshow(arr, interpolation='nearest')
+        #plt.gray()
+        #plt.title("Levels: " + str(pow(2,R)))
+        #plt.show()
+
+    print "MSE Array: " + str(mse_arr)
+    print "Entropy Array: " + str(entropy_arr)
+    plt.plot(entropy_arr, mse_arr)
+    plt.xlabel("Entropy")
+    plt.ylabel("Distortion")
+    plt.show()
 
 def plot_distortion():
     errors = []
@@ -71,6 +89,8 @@ def plot_distortion():
         MSE = calc_MSE(vec, quantize(vec, r))
         errors.append(MSE)
     plt.plot(R, errors)
+    plt.xlabel("R")
+    plt.ylabel("Distortion")
     plt.show()
 
 
@@ -92,9 +112,52 @@ def entropy():
     return -entropy
 
 
-#print quantize(vec, 2)
-#print plot_characteristic(3)
-#plot_distortion()
-#print calc_MSE(vec, quantize(vec, 2))
-#quantize_lena()
+
+# MSE
+def calc_MSE2(original, quantized):
+    return (np.square(original - quantized)).mean(axis=None)
+
+
+
+
+# Creates a dictionary where each symbol has it's frequency associated to it
+def get_symbol2freq(vals):
+    hist = {}
+
+    # Get the histogram
+    for v in vals:
+        if v in hist:
+            hist[v] = hist[v] + 1
+        else:
+            hist[v] = 1
+
+    return hist
+
+
+# Calculate the entropy of the image passed as parameter (matrix)
+def entropy2(image):
+    # Flatten to 1D array
+    vals = image.flatten()
+    hist = get_symbol2freq(vals)
+
+    # Normalize the freqs
+    total = float(sum(hist.values()))
+
+    entropy = 0
+    for count in hist.values():
+        if count != 0:
+            norm = count/total
+            entropy += norm * np.math.log(norm, 2)
+
+    return (entropy*(-1))
+
+
+
+
+
+print quantize(vec, 2)
+print plot_characteristic(3)
+plot_distortion()
+print calc_MSE(vec, quantize(vec, 2))
+quantize_lena()
 entropy()
