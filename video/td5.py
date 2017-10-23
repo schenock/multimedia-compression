@@ -41,11 +41,12 @@ def exhaustive_search(reference_frame, current_frame, block_size, padding):
             search_for_block(current_block, search_area, block_size)
 
 
-def search_for_block(current_block, search_area, N):
+def search_for_block(current_block, search_area, block_size):
+
     print "=================================================================="
-    for i in range(0, len(search_area) - N+1, 1):
-        for j in range(0, len(search_area[0]) - N+1, 1):
-            search_block = search_area[i:(i + N), j:(j + N)]
+    for i in range(0, len(search_area) - block_size+1, 1):
+        for j in range(0, len(search_area[0]) - block_size+1, 1):
+            search_block = search_area[i:(i + block_size), j:(j + block_size)]
             print "Current block\n" + str(current_block)
             print "Search block: \n" + str(search_block)
 
