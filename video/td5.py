@@ -1,11 +1,11 @@
 import matplotlib
 import numpy as np
 
-def exhaustive_search(reference_frame, current_frame, N, P):
+def exhaustive_search(reference_frame, current_frame, block_size, padding):
     """
     Performs exhaustive serach, given 2 frames: the current and the reference frame
-    :param int N: Block-size - in pixels
-    :param int P: Search area around the current block - in pixels
+    :param int block_size: Block-size - in pixels
+    :param int padding: Search area around the current block - in pixels
 
     """
     i = 0
@@ -13,41 +13,32 @@ def exhaustive_search(reference_frame, current_frame, N, P):
     m = 0
     n = 0
 
-    print current_frame
-    print '--------------'
-    #print len(current_frame)
-    #print len(current_frame[0])
-    search_size = N + 2*P
-    print "padding: " + str(P)
-    print "block size: " + str(N)
+    search_size = block_size + 2 * padding
+    print "padding: " + str(padding)
+    print "block size: " + str(block_size)
     print "search length: " + str(search_size)
 
-    for i in range(0, len(current_frame) - N + 1, N):
-        for j in range(0, len(current_frame[0]) - N + 1, N):
-            bx = i + N
-            by = j + N
+    for i in range(0, len(current_frame) - block_size + 1, block_size):
+        for j in range(0, len(current_frame[0]) - block_size + 1, block_size):
+            bx = i + block_size
+            by = j + block_size
             print "bx = " + str(bx)
             print "Current Frame: "
-            print current_frame[i:i + N, j:j + N]
+            print current_frame[i:i + block_size, j:j + block_size]
             print " ----------------------------- "
             current_block = current_frame[i:bx,j:by]
-            print current_block
             # Perform exhaustive search in search-area defined by P for each block - current_block current_frame[i:i + N, j:j + N]
-            #print "i-p = " +  str(i-P)
-            #print "i+N+P = " + str(i+N+P)
-            #print "j-p = " + str(j - P)
-            #print "i+N+P = " + str(i+N+P)
-            x = i - P if i - P >= 0 else 0
-            y = i + N + P if i + N + P >= 0 else 0
-            z = j - P if j - P >= 0 else 0
-            w = j + N + P if j + N + P >= 0 else  0
-
-            #print x, y , z, w
+            x = i - padding if i - padding >= 0 else 0
+            y = i + block_size + padding if i + block_size + padding >= 0 else 0
+            z = j - padding if j - padding >= 0 else 0
+            w = j + block_size + padding if j + block_size + padding >= 0 else  0
 
             search_area = reference_frame[x:y, z:w]
+
             print "Searching for search area:\n"
             print search_area
-            search_for_block(current_block, search_area, N)
+
+            search_for_block(current_block, search_area, block_size)
 
 
 def search_for_block(current_block, search_area, N):
@@ -57,7 +48,8 @@ def search_for_block(current_block, search_area, N):
             search_block = search_area[i:(i + N), j:(j + N)]
             print "Current block\n" + str(current_block)
             print "Search block: \n" + str(search_block)
-            print "............................."
+
+            print np.allclose(search_block, current_block)
 
     print "=================================================================="
 
