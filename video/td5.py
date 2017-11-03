@@ -1,4 +1,5 @@
 import matplotlib
+import sys
 import numpy as np
 
 
@@ -40,10 +41,16 @@ def exhaustive_search(reference_frame, current_frame, block_size, padding):
         xMovement.append(yAxisList)
 
     return np.matrix(xMovement), np.matrix(yMovement)*-1
-    
 
-#TODO: Remove prints 2
+
 def search_for_block(current_block, reference_frame, block_size, padding, row, col):
+    """
+    Given a block and a reference frame, searches for the most similar block in search area defined with: block_size + padding*2
+    :param int block_size : Block size (in pixels)
+    :param int padding : Padding (in pixels)
+    :param int row : Row number (y-coordinate) of the current_block in the original frame
+    :param int col : Col number (x-coordinate) of the current_block in the original frame
+    """
 
     # Calculate search area
     x = row - padding if row - padding >= 0 else 0
@@ -52,24 +59,34 @@ def search_for_block(current_block, reference_frame, block_size, padding, row, c
     w = col + block_size + padding if col + block_size + padding >= 0 else  0
 
     search_area = reference_frame[x:y, z:w]
-    min_mse = 9999999
-    xAxisCoordinates = 99999999
-    yAxisCoordinates = 99999999
+
+    min_mse = sys.maxint
+    xMovement = sys.maxint
+    yMovement = sys.maxint
 
     for search_row in range(0, len(search_area) - block_size + 1, 1):
         for search_col in range(0, len(search_area[0]) - block_size + 1, 1):
             search_block = search_area[search_row:(search_row + block_size), search_col:(search_col + block_size)]
             mse = ((current_block - search_block) ** 2).mean(axis = None)
-            if(mse < min_mse):
+
+            # movement of the current block
+            current_x_movement = col - (search_col + z)
+            current_y_movement = (row - (search_row + x))*-1 # Multiply by -1 because the origin is top left here and bottom left in the plot
+
+            # in case of equal mse for two blocks, take the closest one
+            if mse == min_mse:
+                dist = np.hypot(xMovement, yMovement)
+                dist_current = np.hypot(current_x_movement, current_y_movement)
+                if dist_current < dist:
+                    xMovement = current_x_movement
+                    yMovement = current_y_movement
+
+            # update coordinates if more similar block found
+            if mse < min_mse:
                 min_mse = mse
                 # Save coordinates of current block
-                xAxisCoordinates = col - (search_col + z)
-                yAxisCoordinates = (row - (search_row + x))*-1 # Multiply by -1 because the origin is top left here and bottom left in the plot
+                xMovement = current_x_movement
+                yMovement = current_y_movement
 
-    return xAxisCoordinates, yAxisCoordinates
-
-                #if min_mse == 0:
-    #   print "MIN MSE: " + str(min_mse)
-    #   print "RES X: " + str(xAxisCoordinates)
-    #   print "RES Y: " + str(yAxisCoordinates)
-
+    return xMovement, yMovement
+    

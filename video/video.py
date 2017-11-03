@@ -7,6 +7,7 @@ from skimage import color
 import td5
 import math
 
+
 def main():
     # Load the video
     vid_src = "sample_video.mp4"
