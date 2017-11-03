@@ -1,4 +1,5 @@
 import matplotlib
+import sys
 import numpy as np
 
 
@@ -58,59 +59,42 @@ def search_for_block(current_block, reference_frame, block_size, padding, row, c
     w = col + block_size + padding if col + block_size + padding >= 0 else  0
 
     search_area = reference_frame[x:y, z:w]
-    min_mse = 9999999
-    xAxisCoordinates = 99999999
-    yAxisCoordinates = 99999999
+
+    min_mse = sys.maxint
+    xMovement = sys.maxint
+    yMovement = sys.maxint
 
     for search_row in range(0, len(search_area) - block_size + 1, 1):
         for search_col in range(0, len(search_area[0]) - block_size + 1, 1):
             search_block = search_area[search_row:(search_row + block_size), search_col:(search_col + block_size)]
             mse = ((current_block - search_block) ** 2).mean(axis = None)
 
-            # coordinates of the current block (indexes in the original frame)
-            current_x = col - (search_col + z)
-            current_y = (row - (search_row + x))*-1 # Multiply by -1 because the origin is top left here and bottom left in the plot
+            # movement of the current block
+            current_x_movement = col - (search_col + z)
+            current_y_movement = (row - (search_row + x))*-1 # Multiply by -1 because the origin is top left here and bottom left in the plot
 
             # in case of equal mse for two blocks, take the closest one
             if mse == min_mse:
-                dist = np.hypot(xAxisCoordinates, yAxisCoordinates)
-                dist_current = np.hypot(current_x, current_y)
+                dist = np.hypot(xMovement, yMovement)
+                dist_current = np.hypot(current_x_movement, current_y_movement)
                 if dist_current < dist:
-                    xAxisCoordinates = current_x
-                    yAxisCoordinates = current_y
+                    xMovement = current_x_movement
+                    yMovement = current_y_movement
 
             # update coordinates if more similar block found
             if mse < min_mse:
                 min_mse = mse
                 # Save coordinates of current block
-                xAxisCoordinates = current_x
-                yAxisCoordinates = current_y
+                xMovement = current_x_movement
+                yMovement = current_y_movement
 
-    return xAxisCoordinates, yAxisCoordinates
-
-                #if min_mse == 0:
-    #   print "MIN MSE: " + str(min_mse)
-    #   print "RES X: " + str(xAxisCoordinates)
-    #   print "RES Y: " + str(yAxisCoordinates)
+    return xMovement, yMovement
 
 
 
 
 reference = np.arange(100).reshape(10,10)
 bref = np.arange(100).reshape(10,10)
-
-b = np.arange(100).reshape(10,10)
-
-current_frame = np.zeros(100).reshape(10, 10)
-current_frame[6, 2] = 5
-current_frame[6, 3] = 5
-current_frame[7, 2] = 5
-current_frame[7, 3] = 5
-
-#reference[2, 1] = 5
-#reference[2, 2] = 5
-#reference[3, 1] = 5
-#reference[3, 2] = 5
 
 reference[0, 2] = 5
 reference[0, 3] = 5
@@ -125,5 +109,4 @@ bref[3, 3] = 5
 print reference
 print bref
 
-#print a
 exhaustive_search(reference, bref, 2, 2)
