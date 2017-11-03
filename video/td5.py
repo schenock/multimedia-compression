@@ -38,8 +38,7 @@ def exhaustive_search(reference_frame, current_frame, block_size, padding):
         xAxis.append(xAxisList)
         yAxis.append(yAxisList)
 
-    print xAxis
-    print yAxis
+    return xAxis, yAxis
 
 #TODO: Remove prints 2
 def search_for_block(current_block, reference_frame, block_size, padding, row, col):
@@ -74,29 +73,28 @@ def search_for_block(current_block, reference_frame, block_size, padding, row, c
 
 
 
+def main():
+    reference = np.arange(100).reshape(10,10)
+    b = np.arange(100).reshape(10,10)
 
-reference = np.arange(100).reshape(10,10)
-b = np.arange(100).reshape(10,10)
+    current_frame = np.zeros(100).reshape(10, 10)
+    current_frame[6, 2] = 5
+    current_frame[6, 3] = 5
+    current_frame[7, 2] = 5
+    current_frame[7, 3] = 5
 
-current_frame = np.zeros(100).reshape(10, 10)
-current_frame[6, 2] = 5
-current_frame[6, 3] = 5
-current_frame[7, 2] = 5
-current_frame[7, 3] = 5
+    #reference[2, 1] = 5
+    #reference[2, 2] = 5
+    #reference[3, 1] = 5
+    #reference[3, 2] = 5
 
-#reference[2, 1] = 5
-#reference[2, 2] = 5
-#reference[3, 1] = 5
-#reference[3, 2] = 5
+    reference[1, 2] = 5
+    reference[1, 3] = 5
+    reference[2, 2] = 5
+    reference[2, 3] = 5
 
-reference[1, 2] = 5
-reference[1, 3] = 5
-reference[2, 2] = 5
-reference[2, 3] = 5
+    #print a
+    exhaustive_search(reference, current_frame, 2, 2)
 
-
-print current_frame
-print reference
-
-#print a
-exhaustive_search(reference, current_frame, 2, 2)
+if __name__ == "__main__":
+    main()
