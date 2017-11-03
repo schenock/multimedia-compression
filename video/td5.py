@@ -17,8 +17,8 @@ def exhaustive_search(reference_frame, current_frame, block_size, padding):
 
     search_size = block_size + padding * 2
 
-    xAxis = []
-    yAxis = []
+    yMovement = []
+    xMovement = []
 
     for row in range(0, len(current_frame) - block_size + 1, block_size):
         xAxisList = []
@@ -34,12 +34,13 @@ def exhaustive_search(reference_frame, current_frame, block_size, padding):
             # append coords to list
             xAxisList.append(xAxisCoord)
             yAxisList.append(yAxisCoord)
-        # append list to matrix
-        xAxis.append(xAxisList)
-        yAxis.append(yAxisList)
 
-    print xAxis
-    print yAxis
+        # append list to matrix
+        yMovement.append(xAxisList)
+        xMovement.append(yAxisList)
+
+    return np.matrix(xMovement), np.matrix(yMovement)*-1
+    
 
 #TODO: Remove prints 2
 def search_for_block(current_block, reference_frame, block_size, padding, row, col):
@@ -62,12 +63,12 @@ def search_for_block(current_block, reference_frame, block_size, padding, row, c
             if(mse < min_mse):
                 min_mse = mse
                 # Save coordinates of current block
-                xAxisCoordinates = col - (search_col + x)
-                yAxisCoordinates = (row - (search_row + z))*-1 # Multiply by -1 because the origin is top left here and bottom left in the plot
+                xAxisCoordinates = col - (search_col + z)
+                yAxisCoordinates = (row - (search_row + x))*-1 # Multiply by -1 because the origin is top left here and bottom left in the plot
 
     return xAxisCoordinates, yAxisCoordinates
 
-    #if min_mse == 0:
+                #if min_mse == 0:
     #   print "MIN MSE: " + str(min_mse)
     #   print "RES X: " + str(xAxisCoordinates)
     #   print "RES Y: " + str(yAxisCoordinates)
@@ -76,6 +77,8 @@ def search_for_block(current_block, reference_frame, block_size, padding, row, c
 
 
 reference = np.arange(100).reshape(10,10)
+bref = np.arange(100).reshape(10,10)
+
 b = np.arange(100).reshape(10,10)
 
 current_frame = np.zeros(100).reshape(10, 10)
@@ -89,14 +92,18 @@ current_frame[7, 3] = 5
 #reference[3, 1] = 5
 #reference[3, 2] = 5
 
+reference[0, 2] = 5
+reference[0, 3] = 5
 reference[1, 2] = 5
 reference[1, 3] = 5
-reference[2, 2] = 5
-reference[2, 3] = 5
 
+bref[2, 2] = 5
+bref[2, 3] = 5
+bref[3, 2] = 5
+bref[3, 3] = 5
 
-print current_frame
 print reference
+print bref
 
 #print a
-exhaustive_search(reference, current_frame, 2, 2)
+exhaustive_search(reference, bref, 2, 2)
