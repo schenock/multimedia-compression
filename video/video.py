@@ -5,6 +5,7 @@ import os
 import matplotlib.pyplot as plt
 from skimage import color
 import td5
+import imgcodec
 import math
 
 

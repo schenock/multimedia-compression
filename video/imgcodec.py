@@ -191,23 +191,13 @@ def reconstruct_subbands(subbands, lowpass):
     return matrix
 
 
-def main(img_src):
-    # Load the image
-    image = img.imread(img_src)
-    image = image.astype(np.float64)
+def img_codec(image):
+    """ Applies the still image codec to a given image
+    Params:
+      image: matrix representing the grayscale img"""
 
-    print ""
-    print "-------"
-    print "TD3"
-    print "-------"
     # 1. HAAR Transformation
     transformed_image = image_analysis(image[:], N=2)
-
-    # Show the image
-    plt.imshow(transformed_image)
-    plt.gray()
-    plt.title("TD2: Level 2 Haar wavelet decomposition")
-    plt.show()
 
     subbands,lowpass= get_subbands(transformed_image, 2)
 
@@ -251,14 +241,7 @@ def main(img_src):
         # save quantized subband
         quantized_subbands.append(quant_band)
 
-        #print("Entropy Ratio = ", entropy(band)/entropy(quant_band))
-
-    print "Entropy compression ratio = " + str(total_entropy_quant/total_entropy)
-
     # 5. Synthesis
-    # 5.1 Synthesis of non quantized
-    reconstructed_non_quantized = image_synthesis(transformed_image, N = 2)
-
     # 5.2 Synthesis of quantized
     dequantized_subbands = []
     for idx, band in enumerate(quantized_subbands):
@@ -268,150 +251,4 @@ def main(img_src):
     transformed_quantized = reconstruct_subbands(dequantized_subbands, lowpass)
     reconstructed_quantized = image_synthesis(transformed_quantized, N = 2)
 
-    # Non quantized synthesis (= original image)
-    reconstructed  = image_synthesis(transformed_image, N = 2)
-
-    # 6. Distortion using Peak Signal to Noise Ratio
-    D = calc_PSNR(image, reconstructed_quantized)
-    print "PSNR = " + str(D) + "dB"
-
-    # TD4
-    # --------------------------------
-    print ""
-    print "-------"
-    print "TD4"
-    print "-------"
-    # 1. Determine Huffman code asociated to lvl 2 haar decomposition
-    freqs = get_symbol2freq(transformed_image.flatten())
-    code  = huff_encode(freqs)
-    
-    # 2. Compute average length
-    print"Huffman entropy (total): " + str(get_huffman_entropy(transformed_image))
-    print "Huffman entropy per subband: "
-    
-    print "Lowpass :" + str(get_code_length(code, get_symbol2freq(lowpass.flatten())))
-    for idx,band in enumerate(subbands):
-        print("Subband " + str(idx) + ":" + str(get_code_length(code, get_symbol2freq(band.flatten()))))
-
-    print "Huffman entropy compression ratio: " + str(get_huffman_entropy(transformed_quantized)/get_huffman_entropy(transformed_image))
-
-    print "Shannon entropy: " + str(entropy(transformed_image))
-    print "Huffman entropy: " + str(get_huffman_entropy(transformed_image))
-    # Logically the Huffman entropy is higher because
-
-    distortions = []
-    bpp = []
-    pnsrs = []
-
-    # Save as JPEG with different values of quality
-    for q in [10, 50, 70, 90]:
-        tmp_src = os.path.join(dirname, "tmp1.jpg")
-        
-        # Save the image
-        Image.fromarray(image).convert("L").save(tmp_src, quality=q)
-        comp_size = os.path.getsize(tmp_src)*8 # getsize returns bytes
-
-        compressed = img.imread(tmp_src)
-        pnsrs.append(calc_PSNR(image, compressed))
-        distortions.append(calc_MSE(image, compressed))
-        bpp.append(comp_size/(512.0*512.0))
-
-    plt.plot(bpp, distortions)
-    plt.title('JPEG: distortion vs bit rate')
-    plt.xlabel('bpp', fontsize=14)
-    plt.ylabel('D', fontsize=14)
-    plt.show()
-
-    plt.plot(bpp, pnsrs)
-    plt.title('JPEG: PSNR vs bit rate')
-    plt.xlabel('bpp', fontsize=14)
-    plt.ylabel('PSNR', fontsize=14)
-    plt.show()
-
-
-    try:
-        import glymur
-        # Now as JPEG2000
-        distortions = []
-        bpp = []
-        pnsrs = []
-
-        for q in range(5, 95, 5):
-            tmp_src = os.path.join(dirname, "tmp1.jp2")
-            
-            # Save the image
-            j = glymur.Jp2k(tmp_src, image[:].astype(np.uint8),cratios=[q])
-            comp_size = os.path.getsize(tmp_src)*8 # getsize returns bytes
-
-            compressed = img.imread(tmp_src)
-            pnsrs.append(calc_PSNR(image, compressed))
-            distortions.append(calc_MSE(image, compressed))
-            bpp.append(comp_size/(512.0*512.0))
-
-        plt.plot(bpp, distortions)
-        plt.title('JPEG 2000: distortion vs bit rate')
-        plt.xlabel('bpp', fontsize=14)
-        plt.ylabel('D', fontsize=14)
-        plt.show()
-
-        plt.plot(bpp, pnsrs)
-        plt.title('JPEG 2000: PSNR vs bit rate')
-        plt.xlabel('bpp', fontsize=14)
-        plt.ylabel('PSNR', fontsize=14)
-        plt.show()
-    except:
-        print "Could not perform the JPEG 2000 section, because Glymur python module is missing."
-
-
-# MSE
-def calc_MSE(original, quantized):
-    return (np.square(original - quantized)).mean(axis=None)
-
-# Peak Signal to Noise Ratio
-def calc_PSNR(original, quantized):
-    mse = calc_MSE(original, quantized)
-    return 10*np.log10(pow(255, 2)/mse)
-
-def huff_encode(symb2freq):
-    """Huffman encode the given dict mapping symbols to weights"""
-    # Source: https://rosettacode.org/wiki/Huffman_coding#Python
-
-    heap = [[wt, [sym, ""]] for sym, wt in symb2freq.items()]
-    heapify(heap)
-    while len(heap) > 1:
-        lo = heappop(heap)
-        hi = heappop(heap)
-        for pair in lo[1:]:
-            pair[1] = '0' + pair[1]
-        for pair in hi[1:]:
-            pair[1] = '1' + pair[1]
-        heappush(heap, [lo[0] + hi[0]] + lo[1:] + hi[1:])
-    code = sorted(heappop(heap)[1:], key=lambda p: (len(p[-1]), p))
-    code_dict = {}
-    
-    for symbol,codeword in code: 
-        code_dict[symbol] = codeword
-
-    return code_dict
-
-# Calculate the huffman entropy of a given image
-def get_huffman_entropy(matrix):
-    freqs = get_symbol2freq(matrix.flatten())
-    code = huff_encode(freqs)
-
-    return get_code_length(code, freqs)
-
-# Calculates the average length of a code, given the code itself
-# and the relative frequencies of each word (they have to be normalized)
-def get_code_length(code, freqs):
-    length = 0
-
-    # Freqs have to be normalized
-    total = float(sum(freqs.values()))
-
-    for symbol,freq in freqs.iteritems():
-        length += len(code[symbol])*(freq/total)
-
-    return length
-
-main(img_src)
+    return reconstructed_quantized
