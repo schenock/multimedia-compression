@@ -60,9 +60,9 @@ def search_for_block(current_block, reference_frame, block_size, padding, row, c
 
     search_area = reference_frame[x:y, z:w]
 
-    min_mse = sys.maxint
-    xMovement = sys.maxint
-    yMovement = sys.maxint
+    min_mse = sys.maxsize
+    xMovement = sys.maxsize
+    yMovement = sys.maxsize
 
     for search_row in range(0, len(search_area) - block_size + 1, 1):
         for search_col in range(0, len(search_area[0]) - block_size + 1, 1):
