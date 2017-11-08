@@ -60,9 +60,9 @@ def search_for_block(current_block, reference_frame, block_size, padding, row, c
 
     search_area = reference_frame[x:y, z:w]
 
-    min_mse = sys.maxint
-    xMovement = sys.maxint
-    yMovement = sys.maxint
+    min_mse = sys.maxsize
+    xMovement = sys.maxsize
+    yMovement = sys.maxsize
 
     for search_row in range(0, len(search_area) - block_size + 1, 1):
         for search_col in range(0, len(search_area[0]) - block_size + 1, 1):
@@ -77,9 +77,7 @@ def search_for_block(current_block, reference_frame, block_size, padding, row, c
             if mse == min_mse:
                 dist = np.hypot(xMovement, yMovement)
                 dist_current = np.hypot(current_x_movement, current_y_movement)
-
                 if dist_current < dist:
-                    # Save coordinates of current block
                     xMovement = current_x_movement
                     yMovement = current_y_movement
 
@@ -91,24 +89,4 @@ def search_for_block(current_block, reference_frame, block_size, padding, row, c
                 yMovement = current_y_movement
 
     return xMovement, yMovement
-
-
-
-
-reference = np.arange(100).reshape(10,10)
-bref = np.arange(100).reshape(10,10)
-
-reference[0, 2] = 5
-reference[0, 3] = 5
-reference[1, 2] = 5
-reference[1, 3] = 5
-
-bref[2, 2] = 5
-bref[2, 3] = 5
-bref[3, 2] = 5
-bref[3, 3] = 5
-
-print reference
-print bref
-
-print exhaustive_search(reference, bref, 2, 2)
+    
