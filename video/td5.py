@@ -77,7 +77,9 @@ def search_for_block(current_block, reference_frame, block_size, padding, row, c
             if mse == min_mse:
                 dist = np.hypot(xMovement, yMovement)
                 dist_current = np.hypot(current_x_movement, current_y_movement)
+
                 if dist_current < dist:
+                    # Save coordinates of current block
                     xMovement = current_x_movement
                     yMovement = current_y_movement
 
@@ -109,4 +111,4 @@ bref[3, 3] = 5
 print reference
 print bref
 
-exhaustive_search(reference, bref, 2, 2)
+print exhaustive_search(reference, bref, 2, 2)
