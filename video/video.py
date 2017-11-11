@@ -121,6 +121,8 @@ def main():
 
     # Compress the whole video to extract the motion vectors and the error
     mean_errors = []
+    mean_psnr = []
+    bitrates = []
     for R in range(4, 7):
         first, motion, eres = compress_video(shortvid, block_size, p, R)
 
@@ -135,14 +137,20 @@ def main():
             mae = np.absolute(error).mean(axis = None)
             errors.append(mae)
         # Avg error for the whole video
-        mean_errors.append(sum(errors)/len(errors))
+        mae = sum(errors)/len(errors)
+        mean_errors.append(mae)
+        mean_psnr.append(10*np.log10(pow(255,2)/mae))
+
+        bitrates.append(get_bitrate(shortvid, motion, R, block_size, p))
 
     print(mean_errors)
+    print(mean_psnr)
     # Plot the results
-    plt.plot(range(len(mean_errors)), mean_errors)
-    plt.show()    
+    plt.plot(bitrates, mean_errors)
+    plt.show()
 
-    print("Bitrate: ", get_bitrate(shortvid, motion, R, block_size, p))
+    plt.plot(bitrates, mean_psnr)
+    plt.show()    
 
 
 def get_bitrate(vid, motion, R, block_size, p):
