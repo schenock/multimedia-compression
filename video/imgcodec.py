@@ -50,8 +50,8 @@ def encode_line(vec):
 
 # Perfroms the Haar wavelet synthesis of the provided line
 def decode_line(vec):
-    averages = vec[:len(vec)/2]
-    diffs = vec[len(vec)/2:]
+    averages = vec[:len(vec)//2]
+    diffs = vec[len(vec)//2:]
 
     line = []
     
@@ -82,8 +82,8 @@ def image_analysis(matrix, N=None):
     for i in range(0, N):
         # The index of the first column which doesnt have to be encoded in this iteration
         # (Cols further to the right correspond to the high pass component of previous iterations)
-        col_limit = len(matrix)/pow(2,i) 
-        row_limit = len(matrix[0])/pow(2,i) # Same thing with rows (this way we can work with non square imgs)
+        col_limit = int(len(matrix)/pow(2,i)) 
+        row_limit = int(len(matrix[0])/pow(2,i)) # Same thing with rows (this way we can work with non square imgs)
 
         newmatrix[:row_limit,:col_limit] = encode_matrix(newmatrix[:row_limit, :col_limit], encode_line) 
 
@@ -104,8 +104,8 @@ def image_synthesis(matrix, N=None):
     for i in reversed(range(0, N)):
         # The index of the first column which doesnt have to be encoded in this iteration
         # (Cols further to the right correspond to the high pass component of previous iterations)
-        col_limit = len(matrix)/pow(2,i) 
-        row_limit = len(matrix[0])/pow(2,i) # Same thing with rows (this way we can work with non square imgs)
+        col_limit = int(len(matrix)/pow(2,i)) 
+        row_limit = int(len(matrix[0])/pow(2,i)) # Same thing with rows (this way we can work with non square imgs)
 
         newmatrix[:row_limit,:col_limit] = encode_matrix(newmatrix[:row_limit, :col_limit], decode_line) 
 
@@ -151,16 +151,16 @@ def get_subbands(matrix, N):
     for i in range(1, N+1):
         # The index of the first column which doesnt have to be encoded in this iteration
         # (Cols further to the right correspond to the high pass component of previous iterations)
-        col_limit = len(matrix)/pow(2,i)
-        row_limit = len(matrix[0])/pow(2,i) # Same thing with rows (this way we can work with non square imgs)
+        col_limit = len(matrix)//pow(2,i)
+        row_limit = len(matrix[0])//pow(2,i) # Same thing with rows (this way we can work with non square imgs)
 
         subbands.append(matrix[row_limit:row_limit*2, 0:col_limit])
         subbands.append(matrix[row_limit:row_limit*2, col_limit:col_limit*2])
         subbands.append(matrix[0:row_limit, col_limit:col_limit*2])
 
     # Find the dimensions of the lowpass component
-    size_lp_horiz = len(matrix)/pow(2, N)
-    size_lp_vert = len(matrix[0])/pow(2, N)
+    size_lp_horiz = int(len(matrix)/pow(2, N))
+    size_lp_vert  = int(len(matrix[0])/pow(2, N))
 
     lowpass = np.zeros(shape = (size_lp_horiz, size_lp_vert))
     lowpass[:] = matrix[0:size_lp_horiz, 0:size_lp_vert]
@@ -173,28 +173,32 @@ def get_subbands(matrix, N):
 # (the outer ones)
 # Assuming square input!
 def reconstruct_subbands(subbands, lowpass):
-    size = len(subbands[0])*2 # First subband is half the size of the original image
-    matrix = np.zeros(shape=(size,size))
+    sizex = len(subbands[0])*2 # First subband is half the size of the original image
+    sizey = len(subbands[0][0])*2
+    matrix = np.zeros(shape=(sizex,sizey))
 
-    N = len(subbands)/3 # There are three subbands per decomposition level
 
+    N = int(len(subbands)/3) # There are three subbands per decomposition level
 
     for i in range(0,N):
-        middle = size/pow(2,i+1)
+        midx = int(sizex/pow(2,i+1))
+        midy = int(sizey/pow(2,i+1))
 
-        matrix[middle:middle*2, 0:middle] = subbands[i*3]
-        matrix[middle:middle*2, middle:middle*2] = subbands[i*3 + 1]
-        matrix[0:middle, middle:middle*2] = subbands[i*3 + 2]
+        matrix[midx:midx*2, 0:midy] = subbands[i*3]
+        matrix[midx:midx*2, midy:midy*2] = subbands[i*3 + 1]
+        matrix[0:midx, midy:midy*2] = subbands[i*3 + 2]
 
-    matrix[0:size/pow(2, N), 0:size/pow(2, N)] = lowpass
+    matrix[0:sizex//pow(2, N), 0:sizey//pow(2, N)] = lowpass
 
     return matrix
 
 
-def img_codec(image):
+def compress(image, rate):
     """ Applies the still image codec to a given image
     Params:
-      image: matrix representing the grayscale img"""
+      image: matrix representing the grayscale img
+      rate: bitrate for level 1 subbands (level 2 subbands are compressed using
+            rate+1 bpp)"""
 
     # 1. HAAR Transformation
     transformed_image = image_analysis(image[:], N=2)
@@ -212,14 +216,13 @@ def img_codec(image):
     total_entropy = entropy(lowpass)
     total_entropy_quant = entropy(lowpass)
     for idx, band in enumerate(subbands):
-
         # Different bitrate for subbands
         # Weight is used to calculate the contribution of each subband to the total entropy
         if idx < 3:
-            R = 5
+            R = rate
             weight = 1/4.0
         else:
-            R = 6
+            R = rate + 1
             weight = 1/16.0
 
         #print("Bitrate R: " + str(R))
@@ -241,6 +244,16 @@ def img_codec(image):
         # save quantized subband
         quantized_subbands.append(quant_band)
 
+    return [lowpass, quantized_subbands, arr_min, arr_bucket]
+
+
+def decompress(args):
+    # Extract the arguments
+    lowpass = args[0]
+    quantized_subbands = args[1]
+    arr_min = args[2]
+    arr_bucket = args[3]
+
     # 5. Synthesis
     # 5.2 Synthesis of quantized
     dequantized_subbands = []
@@ -252,3 +265,8 @@ def img_codec(image):
     reconstructed_quantized = image_synthesis(transformed_quantized, N = 2)
 
     return reconstructed_quantized
+
+
+def img_codec(image, R):
+    compressed = compress(image, R)
+    return decompress(compressed)

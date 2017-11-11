@@ -4,7 +4,7 @@ import numpy as np
 
 
 # TODO: Remove comments 1
-def exhaustive_search(reference_frame, current_frame, block_size, padding):
+def get_motion_vectors(reference_frame, current_frame, block_size, padding):
     """
     Performs exhaustive serach, given 2 frames: the current and the reference frame
     :param int block_size: Block-size - in pixels

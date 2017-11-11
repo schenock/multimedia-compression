@@ -3,6 +3,7 @@ import numpy as np
 import imageio
 import os
 import matplotlib.pyplot as plt
+import matplotlib.image as img
 from skimage import color
 import td5
 import imgcodec
@@ -11,7 +12,7 @@ import math
 
 def main():
     # Load the video
-    vid_src = "sample_video.mp4"
+    vid_src = "sample_video2.mp4"
     dirname = os.path.dirname(__file__)
     filename = os.path.join(dirname, vid_src)
     vid = imageio.get_reader(filename, 'mp4')
@@ -27,8 +28,16 @@ def main():
     block_size = 8
     p = 8
     
+    # Load the image
+    # image = img.imread("lenaTest3.jpg")
+    # image = image.astype(np.float64)
+    # plt.imshow(imgcodec.img_codec(image,5))
+    # plt.gray()
+    # plt.show()    
+    imgcodec.img_codec(fr.astype(np.float64), 5)
+
     # U, V represent the two components of the movement vectors
-    U, V = td5.exhaustive_search(fr, fc, block_size, p) # TODO: Which one is fr and which one is fc?
+    U, V = td5.get_motion_vectors(fr, fc, block_size, p)
 
     height, width = fr.shape # 320 x 240
     plt.imshow(fc, cmap='gray', extent=[0, width, 0, height])
@@ -61,46 +70,150 @@ def main():
     plt.gray()
     plt.show()
 
-    # Avg motion compensated error
-    mae = np.absolute(eres).mean(axis = None)
+    # # Avg motion compensated error
+    # mae = np.absolute(eres).mean(axis = None)
 
-    # Calculate mae for the first 20 frames
-    mae_20 = []
-    psnr_20 = []
-    for i in range(170,190):
-        # Extract the current frame and the following one
-        fr = color.rgb2gray(vid.get_data(i))
-        fc = color.rgb2gray(vid.get_data(i+1))
+    # # Calculate mae for the first 20 frames
+    # mae_20 = []
+    # psnr_20 = []
+    # for i in range(170,190):
+    #     # Extract the current frame and the following one
+    #     fr = color.rgb2gray(vid.get_data(i))
+    #     fc = color.rgb2gray(vid.get_data(i+1))
 
-        # U, V represent the two components of the movement vectors
-        U, V = td5.exhaustive_search(fr, fc, block_size, p)
+    #     # U, V represent the two components of the movement vectors
+    #     U, V = td5.get_motion_vectors(fr, fc, block_size, p)
 
-        # Create a new frame, fcc, placing each of the macroblocks in fr
-        # in the position their motion vectors indicate
-        fcc = motion_copy(fr, U, V, block_size)
+    #     # Create a new frame, fcc, placing each of the macroblocks in fr
+    #     # in the position their motion vectors indicate
+    #     fcc = motion_copy(fr, U, V, block_size)
 
-        eres =  fc - fcc
+    #     eres =  fc - fcc
 
-        # Calculate mae and psnr and append to the lists
-        mae = np.absolute(eres).mean(axis = None)
-        mae_20.append(mae)
-        psnr_20.append(10*np.log10(pow(255,2)/mae))
+    #     # Calculate mae and psnr and append to the lists
+    #     mae = np.absolute(eres).mean(axis = None)
+    #     mae_20.append(mae)
+    #     psnr_20.append(10*np.log10(pow(255,2)/mae))
 
+    # # Plot the results
+    # plt.plot(range(len(mae_20)), mae_20)
+    # plt.ylabel("Mae")
+    # plt.xlabel("Frame")
+    # plt.xticks(range(0, len(mae_20), 2))
+    # plt.show()
+
+    # plt.plot(range(len(psnr_20)), psnr_20)
+    # plt.ylabel("PSNR[Mae] (dB)")
+    # plt.xlabel("Frame")
+    # plt.xticks(range(0, len(psnr_20), 2))
+    # plt.show()
+
+    # TD7
+    # Load the video
+    shortvid_src = "trimmed_sample_video2.mp4"
+    shortvid = imageio.get_reader(os.path.join(dirname, shortvid_src), 'mp4')
+    fr = color.rgb2gray(shortvid.get_data(0))
+
+    # # 1- Apply the codec to the first frame
+    # plt.imshow(imgcodec.img_codec(fr, R))
+    # plt.gray()
+    # plt.show()
+
+    # Compress the whole video to extract the motion vectors and the error
+    mean_errors = []
+    for R in range(4, 7):
+        first, motion, eres = compress_video(shortvid, block_size, p, R)
+
+        # Reconstruct the video from what we have stored 
+        reconstructed = decompress_video(first, motion, eres, block_size)
+
+        # Find the distortion
+        errors = []
+        for idx,frame in enumerate(reconstructed):
+            original = color.rgb2gray(shortvid.get_data(idx))
+            error = original - frame
+            mae = np.absolute(error).mean(axis = None)
+            errors.append(mae)
+        # Avg error for the whole video
+        mean_errors.append(sum(errors)/len(errors))
+
+    print(mean_errors)
     # Plot the results
-    plt.plot(range(len(mae_20)), mae_20)
-    plt.ylabel("Mae")
-    plt.xlabel("Frame")
-    plt.xticks(range(0, len(mae_20), 2))
-    plt.show()
+    plt.plot(range(len(mean_errors)), mean_errors)
+    plt.show()    
 
-    plt.plot(range(len(psnr_20)), psnr_20)
-    plt.ylabel("PSNR[Mae] (dB)")
-    plt.xlabel("Frame")
-    plt.xticks(range(0, len(psnr_20), 2))
-    plt.show()
+    print("Bitrate: ", get_bitrate(shortvid, motion, R, block_size, p))
 
 
+def get_bitrate(vid, motion, R, block_size, p):
+    # Get video metadata
+    fps = vid.get_meta_data()["fps"]
+    dimensions = vid.get_meta_data()["size"]
+    nframes = vid.get_meta_data()["nframes"]
 
+    duration = nframes/float(fps)
+
+    # Pixels per frame 
+    pixels = dimensions[0] * dimensions[1]
+
+    # Bits per pixel
+    bpp = 1/16.0*8 + 3/16.0*(R+1) + 3/4.0*R
+
+    # Bits used to encode motion vectors
+    # (max possible motion value is p)
+    bitrate_motion = np.math.log(np.absolute(2*p), 2)
+
+    total_bits_motion = pixels/pow(block_size, 2) * 2 * nframes * bitrate_motion
+
+    return (pixels*bpp*nframes + total_bits_motion)/duration
+
+
+def decompress_video(first, motion, eres, block_size):
+    print("Decompressing video...")
+    # Decompress the video
+    frames = []
+
+    # Decompress the first frame
+    fr = imgcodec.decompress(first)
+    frames.append(fr)
+    for i in range(len(motion)):
+        # Get the predicted frame, compensating with the error
+        fc = motion_copy(fr, motion[i][0], motion[i][1], block_size)
+        fc = fc + imgcodec.decompress(eres[i])
+        frames.append(fc)
+        # The current frame becomes the reference for next iteration 
+        fr = fc
+    print("Done.")
+    return frames
+
+
+def compress_video(vid, block_size, p, R):
+    print("Compressing video...")
+    all_motion = []
+    all_eres = []
+
+    first = imgcodec.compress(color.rgb2gray(vid.get_data(0)), R)
+
+    for i in range(1, vid.get_length()):
+        print("Frame {} of {}:".format(i, vid.get_length()))
+        fr = color.rgb2gray(vid.get_data(i - 1))
+        fc = color.rgb2gray(vid.get_data(i))
+
+        print("Getting motion vectors...")
+        # Motion compensated frame
+        u, v = td5.get_motion_vectors(fr, fc, block_size, p)
+        mot_comp = motion_copy(fr, u, v, block_size)
+
+        print("Calculating and compressing Eres...")
+        # Calculate the error and compress it
+        eres = fc - mot_comp
+        comp_eres = imgcodec.compress(eres, R)
+        
+        # Store eres and motion vectors
+        all_eres.append(comp_eres)
+        all_motion.append([u,v])
+
+    return first, all_motion, all_eres
 
 def motion_copy(ref, xmov, ymov, block_size):
     # Create new frame and fill it with ref
