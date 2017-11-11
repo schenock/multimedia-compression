@@ -3,7 +3,6 @@ import sys
 import numpy as np
 
 
-# TODO: Remove comments 1
 def get_motion_vectors(reference_frame, current_frame, block_size, padding):
     """
     Performs exhaustive serach, given 2 frames: the current and the reference frame

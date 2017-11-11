@@ -1,13 +1,11 @@
-
+import math
 import numpy as np
 import imageio
 import os
 import matplotlib.pyplot as plt
-import matplotlib.image as img
 from skimage import color
 import td5
 import imgcodec
-import math
 
 
 def main():
@@ -25,23 +23,15 @@ def main():
 
     # Perform exhaustive search to find the motion vectors for 
     # each macroblock in fr
-    block_size = 8
+    block_size = 16
     p = 8
-    
-    # Load the image
-    # image = img.imread("lenaTest3.jpg")
-    # image = image.astype(np.float64)
-    # plt.imshow(imgcodec.img_codec(image,5))
-    # plt.gray()
-    # plt.show()    
-    imgcodec.img_codec(fr.astype(np.float64), 5)
 
     # U, V represent the two components of the movement vectors
     U, V = td5.get_motion_vectors(fr, fc, block_size, p)
 
     height, width = fr.shape # 320 x 240
     plt.imshow(fc, cmap='gray', extent=[0, width, 0, height])
-    
+
     # X, Y are the coords of the arrows tails
     X, Y = np.meshgrid(np.arange(0+block_size/2, width, block_size),
                        np.arange(0+block_size/2, height, block_size))
@@ -52,7 +42,7 @@ def main():
     # Can be useful if we want the arrows to be colored
     # depending on their length
     M = np.hypot(U, np.flip(V, axis=0))
-    
+
     plt.quiver(X, Y, np.asarray(U), np.asarray(np.flip(V, axis=0)), np.asarray(M), scale=1, units='xy', color="w")
     plt.show()
 
