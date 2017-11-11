@@ -4,11 +4,14 @@ import imageio
 import os
 import matplotlib.pyplot as plt
 from skimage import color
+import cv2
+
 import td5
 import imgcodec
 
 
 def main():
+
     # Load the video
     vid_src = "sample_video2.mp4"
     dirname = os.path.dirname(__file__)
@@ -60,10 +63,10 @@ def main():
     plt.gray()
     plt.show()
 
-    # # Avg motion compensated error
-    # mae = np.absolute(eres).mean(axis = None)
+    # Avg motion compensated error
+    mae = np.absolute(eres).mean(axis = None)
 
-    # # Calculate mae for the first 20 frames
+    # Calculate mae for the first 20 frames
     # mae_20 = []
     # psnr_20 = []
     # for i in range(170,190):
@@ -119,7 +122,13 @@ def main():
         # Reconstruct the video from what we have stored 
         reconstructed = decompress_video(first, motion, eres, block_size)
 
-        # Find the distortion
+        # TODO: Remove this from here
+        # Save as MPEG - test
+        print("Saving..")
+        print("Size: ", len(reconstructed))
+        save_MPEG(frames=reconstructed[:10], name='output_video')
+
+        # Findthe distortion
         errors = []
         for idx,frame in enumerate(reconstructed):
             original = color.rgb2gray(shortvid.get_data(idx))
@@ -231,6 +240,28 @@ def motion_copy(ref, xmov, ymov, block_size):
             new_frame[x:x+block_size, y:y+block_size] = ref[xref:xref+block_size, yref:yref+block_size]
 
     return new_frame
+
+
+def save_MPEG(frames, name):
+
+    name = 'output_video'
+    name = name + '.avi'
+    dirname = os.path.dirname(__file__)
+    filename = os.path.join(dirname, name)
+
+    fourcc = cv2.VideoWriter_fourcc('M','P','4','2')
+    out = cv2.VideoWriter(filename, fourcc, 30.0, (240, 240))
+
+    for frame in frames:
+        print('Writing frame to mpeg video..')
+        out.write(frame)
+        # cv2.imshow('current frame', frame)
+    
+    # Release everything if job is finished
+    out.release()
+    #released = cv2.cvReleaseVideoWriter(out)
+    # cv2.destroyAllWindows()
+
 
 
 if __name__ == "__main__":
