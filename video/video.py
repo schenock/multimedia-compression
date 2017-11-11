@@ -8,9 +8,10 @@ from skimage import color
 import td5
 import imgcodec
 import math
-
+import cv2
 
 def main():
+
     # Load the video
     vid_src = "sample_video2.mp4"
     dirname = os.path.dirname(__file__)
@@ -27,7 +28,11 @@ def main():
     # each macroblock in fr
     block_size = 8
     p = 8
-    
+
+
+
+
+
     # Load the image
     # image = img.imread("lenaTest3.jpg")
     # image = image.astype(np.float64)
@@ -129,7 +134,13 @@ def main():
         # Reconstruct the video from what we have stored 
         reconstructed = decompress_video(first, motion, eres, block_size)
 
-        # Find the distortion
+        # TODO: Remove this from here
+        # Save as MPEG - test
+        print("Saving..")
+        print("Size: " + len(reconstructed))
+        save_MPEG(frames=reconstructed[:10], name='output_video')
+
+        # Findthe distortion
         errors = []
         for idx,frame in enumerate(reconstructed):
             original = color.rgb2gray(shortvid.get_data(idx))
@@ -241,6 +252,25 @@ def motion_copy(ref, xmov, ymov, block_size):
             new_frame[x:x+block_size, y:y+block_size] = ref[xref:xref+block_size, yref:yref+block_size]
 
     return new_frame
+
+
+def save_MPEG(frames, name):
+
+    name = 'output_video'
+    name = name + '.mp4'
+
+    fourcc = cv2.VideoWriter_fourcc(*'MP4V',)
+    out = cv2.VideoWriter(name, fourcc, 30.0, (240, 240))
+
+    for frame in frames:
+        print('Writing frame to mpeg video..')
+        out.write(frame)
+        #cv2.imshow('current frame', frame)
+
+    # Release everything if job is finished
+    out.release()
+    cv2.destroyAllWindows()
+
 
 
 if __name__ == "__main__":
