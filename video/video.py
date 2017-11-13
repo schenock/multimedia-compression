@@ -166,19 +166,18 @@ def plot_MPEG(frames, filename):
     for quality in range(2,10,1):
         # Save video with quality parameter
         name = '{}_quality_{}.mp4'.format(filename, quality)
-        save_MPEG(frames=frames, filename=filename)
+        save_MPEG(frames=frames, filename=filename, quality=quality)
 
         # Load video
         dirname = os.path.dirname(__file__)
-        filename = os.path.join(dirname, name)
-        vid = imageio.get_reader(filename, 'mp4')
+        vid_name = os.path.join(dirname, name)
+        vid = imageio.get_reader(vid_name, 'mp4')
 
         # Calculate distortion (1. Get frames from mpeg compressed saved video. 2. Compare with original frames)
         mpeg_frames = get_video_frames(vid)
         distortion = get_distortion(frames, mpeg_frames)
         distortion.append(distortion)
         quality_levels.append(quality)
-
 
     # Plot distortion
     plt.plot(range(quality_levels), distortions)
