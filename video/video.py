@@ -66,51 +66,46 @@ def main():
     # Avg motion compensated error
     mae = np.absolute(eres).mean(axis = None)
 
-    # Calculate mae for the first 20 frames
-    # mae_20 = []
-    # psnr_20 = []
-    # for i in range(170,190):
-    #     # Extract the current frame and the following one
-    #     fr = color.rgb2gray(vid.get_data(i))
-    #     fc = color.rgb2gray(vid.get_data(i+1))
+    Calculate mae for the first 20 frames
+    mae_20 = []
+    psnr_20 = []
+    for i in range(170,190):
+        # Extract the current frame and the following one
+        fr = color.rgb2gray(vid.get_data(i))
+        fc = color.rgb2gray(vid.get_data(i+1))
 
-    #     # U, V represent the two components of the movement vectors
-    #     U, V = td5.get_motion_vectors(fr, fc, block_size, p)
+        # U, V represent the two components of the movement vectors
+        U, V = td5.get_motion_vectors(fr, fc, block_size, p)
 
-    #     # Create a new frame, fcc, placing each of the macroblocks in fr
-    #     # in the position their motion vectors indicate
-    #     fcc = motion_copy(fr, U, V, block_size)
+        # Create a new frame, fcc, placing each of the macroblocks in fr
+        # in the position their motion vectors indicate
+        fcc = motion_copy(fr, U, V, block_size)
 
-    #     eres =  fc - fcc
+        eres =  fc - fcc
 
-    #     # Calculate mae and psnr and append to the lists
-    #     mae = np.absolute(eres).mean(axis = None)
-    #     mae_20.append(mae)
-    #     psnr_20.append(10*np.log10(pow(255,2)/mae))
+        # Calculate mae and psnr and append to the lists
+        mae = np.absolute(eres).mean(axis = None)
+        mae_20.append(mae)
+        psnr_20.append(10*np.log10(pow(255,2)/mae))
 
-    # # Plot the results
-    # plt.plot(range(len(mae_20)), mae_20)
-    # plt.ylabel("Mae")
-    # plt.xlabel("Frame")
-    # plt.xticks(range(0, len(mae_20), 2))
-    # plt.show()
+    # Plot the results
+    plt.plot(range(len(mae_20)), mae_20)
+    plt.ylabel("Mae")
+    plt.xlabel("Frame")
+    plt.xticks(range(0, len(mae_20), 2))
+    plt.show()
 
-    # plt.plot(range(len(psnr_20)), psnr_20)
-    # plt.ylabel("PSNR[Mae] (dB)")
-    # plt.xlabel("Frame")
-    # plt.xticks(range(0, len(psnr_20), 2))
-    # plt.show()
+    plt.plot(range(len(psnr_20)), psnr_20)
+    plt.ylabel("PSNR[Mae] (dB)")
+    plt.xlabel("Frame")
+    plt.xticks(range(0, len(psnr_20), 2))
+    plt.show()
 
     # TD7
     # Load the video
     shortvid_src = "trimmed_sample_video2.mp4"
     shortvid = imageio.get_reader(os.path.join(dirname, shortvid_src), 'mp4')
     fr = color.rgb2gray(shortvid.get_data(0))
-
-    # # 1- Apply the codec to the first frame
-    # plt.imshow(imgcodec.img_codec(fr, R))
-    # plt.gray()
-    # plt.show()
 
     # Compress the whole video to extract the motion vectors and the error
     mean_errors = []
@@ -142,8 +137,6 @@ def main():
 
         bitrates.append(get_bitrate(shortvid, motion, R, block_size, p))
 
-    print(mean_errors)
-    print(mean_psnr)
     # Plot the results
     plt.plot(bitrates, mean_errors)
     plt.show()
