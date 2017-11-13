@@ -167,12 +167,11 @@ def plot_MPEG(frames, filename):
         # Save video with quality parameter
         name = '{}_quality_{}.mp4'.format(filename, quality)
         save_MPEG(frames=frames, filename=filename, quality=quality)
-        save_MPEG(frames=frames, filename=filename, quality=quality)
 
         # Load video
         dirname = os.path.dirname(__file__)
-        filename = os.path.join(dirname, name)
-        vid = imageio.get_reader(filename, 'mp4')
+        vid_name = os.path.join(dirname, name)
+        vid = imageio.get_reader(vid_name, 'mp4')
 
         # Calculate distortion (1. Get frames from mpeg compressed saved video. 2. Compare with original frames)
         mpeg_frames = get_video_frames(vid)
@@ -180,13 +179,11 @@ def plot_MPEG(frames, filename):
         vid_psnr.append(pnsr)
         quality_levels.append(quality)
 
-
     # Plot distortion
     plt.plot(range(quality_levels), vid_psnr)
     plt.ylabel("Distortion")
     plt.xlabel("Quality")
     plt.show()
-
 
 
 def get_distortion(original, reconstructed):
@@ -315,7 +312,3 @@ def save_MPEG(frames, filename, quality):
 
 if __name__ == "__main__":
     main()
-
-    
-# https://matplotlib.org/examples/pylab_examples/quiver_demo.html
-# https://stackoverflow.com/questions/34458251/plot-over-an-image-background-in-python
