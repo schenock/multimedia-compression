@@ -117,7 +117,7 @@ def main():
     bitrates = []
 
     # Lets compress the video using different bitrates
-    for R in range(1, 8):
+    for R in range(1, 3):
         first, motion, eres = compress_video(shortvid, block_size, p, R)
 
         # Reconstruct the video from what we have stored 
@@ -127,7 +127,8 @@ def main():
         mae, psnr = get_distortion(shortvid, reconstructed)
         mean_errors.append(mae)
         mean_psnr.append(psnr)
-        
+        print(psnr)
+        print(mae)
         bitrates.append(get_bitrate(shortvid, motion, R, block_size, p))
 
     # Convert to Mbps
@@ -142,31 +143,31 @@ def main():
     plt.plot(bitrates, mean_psnr)
     plt.ylabel("PSNR")
     plt.xlabel("Bitrate (Mbps)")
-    plt.show()    
-
+    plt.show()
 
     # Get frames of video
     frames = get_video_frames(shortvid)
 
-    # Save as MPEG - test.
-    print("Saving mp4 video..")
-    save_MPEG(frames=frames, filename='saved-video', quality=7)
+    plot_MPEG(frames, "quality_test")
 
 
 def get_video_frames(video):
+    """Gets the frames of the given video as a list"""
     frames = []
     for index in range(video.get_length()):
         frames.append(video.get_data(index))
 
+    return frames
+
 
 def plot_MPEG(frames, filename):
-
-    distortions = []
+    vid_psnr = []
     quality_levels = []
     for quality in range(2,10,1):
         # Save video with quality parameter
         name = '{}_quality_{}.mp4'.format(filename, quality)
-        save_MPEG(frames=frames, filename=filename)
+        save_MPEG(frames=frames, filename=filename, quality=quality)
+        save_MPEG(frames=frames, filename=filename, quality=quality)
 
         # Load video
         dirname = os.path.dirname(__file__)
@@ -175,13 +176,13 @@ def plot_MPEG(frames, filename):
 
         # Calculate distortion (1. Get frames from mpeg compressed saved video. 2. Compare with original frames)
         mpeg_frames = get_video_frames(vid)
-        distortion = get_distortion(frames, mpeg_frames)
-        distortion.append(distortion)
+        mae, psnr = get_distortion(frames, mpeg_frames)
+        vid_psnr.append(pnsr)
         quality_levels.append(quality)
 
 
     # Plot distortion
-    plt.plot(range(quality_levels), distortions)
+    plt.plot(range(quality_levels), vid_psnr)
     plt.ylabel("Distortion")
     plt.xlabel("Quality")
     plt.show()
@@ -302,7 +303,6 @@ def motion_copy(ref, xmov, ymov, block_size):
 
 def save_MPEG(frames, filename, quality):
     """Saves array of frames as .mp4 video"""
-
     filename = filename + '.mp4'
 
     with imageio.get_writer(filename, quality=quality) as writer:
