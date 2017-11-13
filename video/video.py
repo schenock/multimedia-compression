@@ -48,6 +48,7 @@ def main():
     M = np.hypot(U, np.flip(V, axis=0))
 
     plt.quiver(X, Y, np.asarray(U), np.asarray(np.flip(V, axis=0)), np.asarray(M), scale=1, units='xy', color="w")
+    plt.title("Motion vectors")
     plt.show()
 
     # Create a new frame, fcc, placing each of the macroblocks in fr
@@ -56,18 +57,20 @@ def main():
 
     # Difference between fc and fr
     plt.imshow(fc -fr)
+    plt.title("Fc - Fr")
     plt.gray()
     plt.show()
 
     eres =  fc - fcc
     plt.imshow(eres)
+    plt.title("Eres")
     plt.gray()
     plt.show()
 
     # Avg motion compensated error
     mae = np.absolute(eres).mean(axis = None)
 
-    Calculate mae for the first 20 frames
+    # Calculate mae for the first 20 frames
     mae_20 = []
     psnr_20 = []
     for i in range(170,190):
@@ -242,7 +245,7 @@ def save_MPEG(frames, filename, quality):
 
     with imageio.get_writer(filename, quality=quality) as writer:
         for frame in frames:
-            writer.append(frame)
+            writer.append_data(frame)
 
     writer.close()
 
