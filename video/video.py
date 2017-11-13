@@ -285,14 +285,14 @@ def motion_copy(ref, xmov, ymov, block_size):
     new_frame = np.zeros_like(ref)
     
     # Block by block, find where they should be
-    for i in range(0, len(ref)//block_size):
-        for j in range(0, len(ref[0])//block_size):
+    for i in range(0, math.ceil(len(ref)/block_size)): 
+        for j in range(0, math.ceil(len(ref[0])/block_size)):
             # Actual x and y coordinates on the ref matrix
             xref = i*block_size
             yref = j*block_size
             # New position will be
-            x = xref - xmov[i,j]
-            y = yref - ymov[i,j]
+            x = xref + xmov[i,j]
+            y = yref + ymov[i,j]
             # Update the corresponding bits in the new frame
             new_frame[x:x+block_size, y:y+block_size] = ref[xref:xref+block_size, yref:yref+block_size]
 
