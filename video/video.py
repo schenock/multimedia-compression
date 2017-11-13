@@ -123,7 +123,6 @@ def main():
         # Reconstruct the video from what we have stored 
         reconstructed = decompress_video(first, motion, eres, block_size)
 
-
         # Find the distortion
         errors = []
         for idx,frame in enumerate(reconstructed):
@@ -149,10 +148,16 @@ def main():
     plt.xlabel("Bitrate (Mbps)")
     plt.show()    
 
-    # TODO: Remove this from here
+
+    # Get frames of video
+    frames = []
+    for index in range(shortvid.get_length()):
+        frames.append(shortvid.get_data(index))
+
     # Save as MPEG - test.
     print("Saving mp4 video..")
-    save_MPEG(frames=shortvid.get, filename='saved-video', quality= 7)
+    save_MPEG(frames=frames, filename='saved-video', quality=7)
+
 
 def get_bitrate(vid, motion, R, block_size, p):
     # Get video metadata
