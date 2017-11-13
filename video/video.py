@@ -123,27 +123,23 @@ def main():
         # Reconstruct the video from what we have stored 
         reconstructed = decompress_video(first, motion, eres, block_size)
 
-        # Find the distortion
-        errors = []
-        for idx,frame in enumerate(reconstructed):
-            original = color.rgb2gray(shortvid.get_data(idx))
-            error = original - frame
-            mae = np.absolute(error).mean(axis = None)
-            errors.append(mae)
-        # Avg error for the whole video
-        mae = sum(errors)/len(errors)
+        # Get avg distortion and psnr and append them to the lists
+        mae, psnr = get_distortion(shortvid, reconstructed)
         mean_errors.append(mae)
-        mean_psnr.append(10*np.log10(pow(255,2)/mae))
+        mean_psnr.append(psnr)
         
         bitrates.append(get_bitrate(shortvid, motion, R, block_size, p))
 
+    # Convert to Mbps
+    bitrates[:] = [x/1000000 for x in bitrates]
+
     # Plot the results
-    plt.plot(bitrates/1000000, mean_errors)
+    plt.plot(bitrates, mean_errors)
     plt.ylabel("Total average distortion")
     plt.xlabel("Bitrate (Mbps)")
     plt.show()
 
-    plt.plot(bitrates/1000000, mean_psnr)
+    plt.plot(bitrates, mean_psnr)
     plt.ylabel("PSNR")
     plt.xlabel("Bitrate (Mbps)")
     plt.show()    
@@ -158,6 +154,21 @@ def main():
     print("Saving mp4 video..")
     save_MPEG(frames=frames, filename='saved-video', quality=7)
 
+
+def get_distortion(original, reconstructed):
+    """Returns the total avg distortion and PSNR for a given video and the
+    reference one."""
+    errors = []
+    for idx,frame in enumerate(reconstructed):
+        ref = color.rgb2gray(original.get_data(idx))
+        error = ref - frame
+        mae = np.absolute(error).mean(axis = None)
+        errors.append(mae)
+    # Avg error for the whole video
+    mae = sum(errors)/len(errors)
+    psnr = 10*np.log10(pow(255,2)/mae)
+
+    return mae, psnr
 
 def get_bitrate(vid, motion, R, block_size, p):
     # Get video metadata
@@ -240,17 +251,16 @@ def decompress_video(first, motion, eres, block_size):
 def motion_copy(ref, xmov, ymov, block_size):
     # Create new frame and fill it with ref
     new_frame = np.zeros_like(ref)
-    #new_frame[:] = ref # TODO: Should it be like this? Or what to place in the empty spaces? 
     
     # Block by block, find where they should be
-    for i in range(0, math.ceil(len(ref)/block_size)): 
-        for j in range(0, math.ceil(len(ref[0])/block_size)):
+    for i in range(0, len(ref)//block_size): 
+        for j in range(0, len(ref[0])//block_size):
             # Actual x and y coordinates on the ref matrix
             xref = i*block_size
             yref = j*block_size
             # New position will be
-            x = xref + xmov[i,j]
-            y = yref + ymov[i,j]
+            x = xref - xmov[i,j]
+            y = yref - ymov[i,j]
             # Update the corresponding bits in the new frame
             new_frame[x:x+block_size, y:y+block_size] = ref[xref:xref+block_size, yref:yref+block_size]
 
