@@ -116,7 +116,7 @@ def main():
     mean_psnr = []
     bitrates = []
 
-    # Lets compress the video using different bitrates 
+    # Lets compress the video using different bitrates
     for R in range(1, 8):
         first, motion, eres = compress_video(shortvid, block_size, p, R)
 
@@ -134,7 +134,7 @@ def main():
         mae = sum(errors)/len(errors)
         mean_errors.append(mae)
         mean_psnr.append(10*np.log10(pow(255,2)/mae))
-        
+
         bitrates.append(get_bitrate(shortvid, motion, R, block_size, p))
 
     # Plot the results
@@ -146,17 +146,36 @@ def main():
     plt.plot(bitrates/1000000, mean_psnr)
     plt.ylabel("PSNR")
     plt.xlabel("Bitrate (Mbps)")
-    plt.show()    
+    plt.show()
 
 
     # Get frames of video
-    frames = []
-    for index in range(shortvid.get_length()):
-        frames.append(shortvid.get_data(index))
+    frames = get_video_frames(shortvid)
 
     # Save as MPEG - test.
     print("Saving mp4 video..")
     save_MPEG(frames=frames, filename='saved-video', quality=7)
+
+
+def get_video_frames(video):
+    frames = []
+    for index in range(video.get_length()):
+        frames.append(video.get_data(index))
+
+
+def plot_MPEG(frames, filename):
+    for quality in range(2,10,1):
+        # Save video with quality parameter
+        name = '{}_quality_{}.mp4'.format(filename, quality)
+        save_MPEG(frames=frames, filename=filename)
+
+        # Load video
+        dirname = os.path.dirname(__file__)
+        filename = os.path.join(dirname, name)
+        vid = imageio.get_reader(filename, 'mp4')
+
+
+
 
 
 def get_bitrate(vid, motion, R, block_size, p):
@@ -231,7 +250,7 @@ def decompress_video(first, motion, eres, block_size):
         fc = motion_copy(fr, motion[i][0], motion[i][1], block_size)
         fc = fc + imgcodec.decompress(eres[i])
         frames.append(fc)
-        # The current frame becomes the reference for next iteration 
+        # The current frame becomes the reference for next iteration
         fr = fc
     print("Done.")
     return frames
