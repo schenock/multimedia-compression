@@ -115,18 +115,16 @@ def main():
     mean_errors = []
     mean_psnr = []
     bitrates = []
-    for R in range(4, 7):
+
+    # Lets compress the video using different bitrates 
+    for R in range(1, 8):
         first, motion, eres = compress_video(shortvid, block_size, p, R)
 
         # Reconstruct the video from what we have stored 
         reconstructed = decompress_video(first, motion, eres, block_size)
 
-        # TODO: Remove this from here
-        # Save as MPEG - test.
-        print("Saving mp4 video..")
-        save_MPEG(frames=reconstructed, filename='saved-video', quality= 7)
 
-        # Findthe distortion
+        # Find the distortion
         errors = []
         for idx,frame in enumerate(reconstructed):
             original = color.rgb2gray(shortvid.get_data(idx))
@@ -137,16 +135,24 @@ def main():
         mae = sum(errors)/len(errors)
         mean_errors.append(mae)
         mean_psnr.append(10*np.log10(pow(255,2)/mae))
-
+        
         bitrates.append(get_bitrate(shortvid, motion, R, block_size, p))
 
     # Plot the results
-    plt.plot(bitrates, mean_errors)
+    plt.plot(bitrates/1000000, mean_errors)
+    plt.ylabel("Total average distortion")
+    plt.xlabel("Bitrate (Mbps)")
     plt.show()
 
-    plt.plot(bitrates, mean_psnr)
+    plt.plot(bitrates/1000000, mean_psnr)
+    plt.ylabel("PSNR")
+    plt.xlabel("Bitrate (Mbps)")
     plt.show()    
 
+    # TODO: Remove this from here
+    # Save as MPEG - test.
+    print("Saving mp4 video..")
+    save_MPEG(frames=shortvid.get, filename='saved-video', quality= 7)
 
 def get_bitrate(vid, motion, R, block_size, p):
     # Get video metadata
@@ -171,26 +177,10 @@ def get_bitrate(vid, motion, R, block_size, p):
     return (pixels*bpp*nframes + total_bits_motion)/duration
 
 
-def decompress_video(first, motion, eres, block_size):
-    print("Decompressing video...")
-    # Decompress the video
-    frames = []
-
-    # Decompress the first frame
-    fr = imgcodec.decompress(first)
-    frames.append(fr)
-    for i in range(len(motion)):
-        # Get the predicted frame, compensating with the error
-        fc = motion_copy(fr, motion[i][0], motion[i][1], block_size)
-        fc = fc + imgcodec.decompress(eres[i])
-        frames.append(fc)
-        # The current frame becomes the reference for next iteration 
-        fr = fc
-    print("Done.")
-    return frames
-
-
 def compress_video(vid, block_size, p, R):
+    """Compresses the video passed as parameter, using a given block size and search
+    parameter for the block matching algorithm, and bitrate R for image compression.i
+    """
     print("Compressing video...")
     all_motion = []
     all_eres = []
@@ -218,6 +208,30 @@ def compress_video(vid, block_size, p, R):
 
     return first, all_motion, all_eres
 
+
+def decompress_video(first, motion, eres, block_size):
+    """Given the first frame of a video (compressed), the motion vectors, the
+    Eres (also compressed), and the block size used for the block matching algorithm,
+    reconstructs the original video."""
+
+    print("Decompressing video...")
+    # Decompress the video
+    frames = []
+
+    # Decompress the first frame
+    fr = imgcodec.decompress(first)
+    frames.append(fr)
+    for i in range(len(motion)):
+        # Get the predicted frame, compensating with the error
+        fc = motion_copy(fr, motion[i][0], motion[i][1], block_size)
+        fc = fc + imgcodec.decompress(eres[i])
+        frames.append(fc)
+        # The current frame becomes the reference for next iteration 
+        fr = fc
+    print("Done.")
+    return frames
+
+
 def motion_copy(ref, xmov, ymov, block_size):
     # Create new frame and fill it with ref
     new_frame = np.zeros_like(ref)
@@ -238,8 +252,8 @@ def motion_copy(ref, xmov, ymov, block_size):
     return new_frame
 
 
-# Saves array of frames as .mp4 video
 def save_MPEG(frames, filename, quality):
+    """Saves array of frames as .mp4 video"""
 
     filename = filename + '.mp4'
 
