@@ -9,6 +9,7 @@ import cv2
 import td5
 import imgcodec
 
+import math
 
 def main():
 
@@ -118,10 +119,9 @@ def main():
         reconstructed = decompress_video(first, motion, eres, block_size)
 
         # TODO: Remove this from here
-        # Save as MPEG - test
-        print("Saving..")
-        print("Size: ", len(reconstructed))
-        save_MPEG(frames=reconstructed[:10], name='output_video')
+        # Save as MPEG - test.
+        print("Saving mp4 video..")
+        save_MPEG(frames=reconstructed, filename='saved-video', quality= 7)
 
         # Findthe distortion
         errors = []
@@ -235,25 +235,16 @@ def motion_copy(ref, xmov, ymov, block_size):
     return new_frame
 
 
-def save_MPEG(frames, name):
+# Saves array of frames as .mp4 video
+def save_MPEG(frames, filename, quality):
 
-    name = 'output_video'
-    name = name + '.avi'
-    dirname = os.path.dirname(__file__)
-    filename = os.path.join(dirname, name)
+    filename = filename + '.mp4'
 
-    fourcc = cv2.VideoWriter_fourcc('M','P','4','2')
-    out = cv2.VideoWriter(filename, fourcc, 30.0, (240, 240))
+    with imageio.get_writer(filename, quality=quality) as writer:
+        for frame in frames:
+            writer.append(frame)
 
-    for frame in frames:
-        print('Writing frame to mpeg video..')
-        out.write(frame)
-        # cv2.imshow('current frame', frame)
-    
-    # Release everything if job is finished
-    out.release()
-    #released = cv2.cvReleaseVideoWriter(out)
-    # cv2.destroyAllWindows()
+    writer.close()
 
 
 
