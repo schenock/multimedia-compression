@@ -116,7 +116,7 @@ def main():
     mean_psnr = []
     bitrates = []
 
-    # Lets compress the video using different bitrates 
+    # Lets compress the video using different bitrates
     for R in range(1, 8):
         first, motion, eres = compress_video(shortvid, block_size, p, R)
 
@@ -146,13 +146,46 @@ def main():
 
 
     # Get frames of video
-    frames = []
-    for index in range(shortvid.get_length()):
-        frames.append(shortvid.get_data(index))
+    frames = get_video_frames(shortvid)
 
     # Save as MPEG - test.
     print("Saving mp4 video..")
     save_MPEG(frames=frames, filename='saved-video', quality=7)
+
+
+def get_video_frames(video):
+    frames = []
+    for index in range(video.get_length()):
+        frames.append(video.get_data(index))
+
+
+def plot_MPEG(frames, filename):
+
+    distortions = []
+    quality_levels = []
+    for quality in range(2,10,1):
+        # Save video with quality parameter
+        name = '{}_quality_{}.mp4'.format(filename, quality)
+        save_MPEG(frames=frames, filename=filename)
+
+        # Load video
+        dirname = os.path.dirname(__file__)
+        filename = os.path.join(dirname, name)
+        vid = imageio.get_reader(filename, 'mp4')
+
+        # Calculate distortion (1. Get frames from mpeg compressed saved video. 2. Compare with original frames)
+        mpeg_frames = get_video_frames(vid)
+        distortion = get_distortion(frames, mpeg_frames)
+        distortion.append(distortion)
+        quality_levels.append(quality)
+
+
+    # Plot distortion
+    plt.plot(range(quality_levels), distortions)
+    plt.ylabel("Distortion")
+    plt.xlabel("Quality")
+    plt.show()
+
 
 
 def get_distortion(original, reconstructed):
